@@ -90,7 +90,14 @@
   }
 
   function shakeScreen() {
-    const el = document.getElementById('battle');
+    // Deliberately NOT #battle itself: that element carries .screen's
+    // backdrop-filter, and animating `transform` on an element that also
+    // has backdrop-filter is a known browser trap — the blur's "what's
+    // behind me" sampling and the transform's GPU compositing can desync
+    // for a frame, which renders as a flicker/blank. Shaking this inner,
+    // filter-free wrapper instead leaves the blurred ancestor perfectly
+    // static, sidestepping the bug entirely.
+    const el = document.getElementById('battleShakeTarget');
     if (!el) return;
     // Removing the class cancels any in-progress shake outright (no
     // animationend fires for a canceled animation), so restarting it here

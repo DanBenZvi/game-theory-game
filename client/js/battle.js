@@ -134,7 +134,7 @@
         SoundEngine.sunk();
         await BattleEffects.sinkShip(shipCellEls);
         for (const el of shipCellEls) {
-          el.classList.remove('hit');
+          el.classList.remove('hit', 'sinking');
           el.classList.add('sunk');
         }
       }
