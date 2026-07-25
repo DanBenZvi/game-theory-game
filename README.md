@@ -16,12 +16,21 @@ Since then: fixed a real bug where the hit-flash/miss-ripple effects were
 rendering across the *entire board* instead of the single cell they hit
 (missing `position: relative` on `.cell`); fixed a board-flicker-on-every-hit
 bug caused by animating `transform` on the same element that carries
-`backdrop-filter` (a known browser rendering trap); added a mutual
+`backdrop-filter` (a known browser rendering trap); and added a mutual
 rematch flow for online play with a running scoreboard that persists
-across replays in the same room; and added background battle music —
-fully original and procedurally generated with WebAudio (no licensed
-track needed, nothing to attribute, works the same in dev and in
-production) — plus a richer victory fanfare.
+across replays in the same room.
+
+Most recently: added a 15-second per-turn timeout for online play (a
+player who doesn't fire in time auto-forfeits the turn to their
+opponent, with a countdown shown on the turn indicator and a banner
+when it expires); changed vs-AI's **Play Again** to return to the
+placement screen (so you can re-arrange your fleet before the next
+round) instead of instantly restarting with the same layout; and added
+an in-battle **← Menu** button, visible throughout any match, that
+lets you leave at any time (online play treats this as a forfeit, with
+a confirmation prompt, and awards the opponent the win). Background
+battle music was tried (procedurally generated with WebAudio) and then
+dropped — sound effects only now.
 
 ## Rematch & scoreboard (online)
 
@@ -31,8 +40,22 @@ side who clicked first sees "Waiting for opponent…", the other sees
 "Opponent wants a rematch!". Once both agree, the room goes straight
 back to placement with a running score (`YOU 2 — 1 OPPONENT`) that
 persists across as many rematches as you play, resetting only when you
-leave the room. vs-AI still uses its own instant, no-confirmation-needed
-**Play Again** button — no server round-trip needed there.
+leave the room. vs-AI's **Play Again** also returns to the placement
+screen (with the same difficulty preselected) so you can re-arrange
+your fleet before the next round, rather than instantly reusing your
+old layout — no server round-trip needed there, it's purely local.
+
+## Turn timeout & leaving mid-game (online)
+
+Each player gets 15 seconds to fire once it's their turn — the turn
+indicator counts down, and if time runs out the turn automatically
+passes to the opponent (no shot is taken; nothing is lost besides the
+turn itself). Both players see a brief banner when this happens.
+
+An **← Menu** button is shown throughout any battle (vs-AI or online),
+not just after the game ends. In vs-AI it just leaves. In online play
+it asks for confirmation first, since leaving mid-match forfeits the
+game and awards your opponent the win.
 
 ## Run locally
 
@@ -155,9 +178,6 @@ client/       Static HTML/CSS/JS served by the server
   js/effects.js      Missile arcs, particle bursts, screen shake, sinking
                      animation — shared by both battle screens
   js/sound.js        WebAudio-generated sound engine (no audio files)
-  js/music.js        Original, procedurally-generated looping battle
-                     music (WebAudio lookahead scheduler) — no audio
-                     file, nothing to license
   js/battle.js       vs-AI battle screen (two boards, firing, win/lose)
   js/onlineBattle.js Online battle screen — same rendering, but every
                      shot is server-confirmed instead of computed locally

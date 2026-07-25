@@ -2,8 +2,3 @@ node_modules/
 .env
 *.log
 .DS_Store
-
-# User-supplied battle music (client/audio/README.md) — likely
-# copyrighted and not ours to redistribute; keep it local-only.
-client/audio/*
-!client/audio/README.md

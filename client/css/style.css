@@ -77,6 +77,27 @@ body.ocean-fallback #oceanCanvas {
   border-color: rgba(255, 90, 60, 0.6);
 }
 
+.battle-back-btn {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 700;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(10, 26, 46, 0.6);
+  border: 1px solid var(--cyan-dim);
+  color: var(--text);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+
+.battle-back-btn:hover {
+  background: rgba(41, 224, 255, 0.15);
+  box-shadow: 0 0 14px rgba(41, 224, 255, 0.4);
+}
+
 #app {
   position: relative;
   z-index: 1;

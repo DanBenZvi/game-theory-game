@@ -8,6 +8,7 @@
 
 (function () {
   const L = window.BattleshipLogic;
+  const TURN_TIMEOUT_SECONDS = 15; // must match server/roomManager.js's TURN_TIMEOUT_MS
 
   function createOnlineBattleScreen(
     {
@@ -32,6 +33,8 @@
     let pendingOutgoingMissile = null;
     let myStats = { shotsFired: 0, hits: 0, shipsSunk: 0 };
     let score = { 1: 0, 2: 0 };
+    let countdownTimer = null;
+    let countdownSeconds = 0;
 
     const ownCellEls = [];
     const enemyCellEls = [];
@@ -140,13 +143,43 @@
       });
     }
 
+    function clearCountdown() {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }
+
+    /** Local, cosmetic countdown shown during my own turn — the server enforces the
+     * actual timeout independently, so this doesn't need to be millisecond-exact,
+     * just give a sense of urgency before a stalled turn gets auto-passed. */
+    function startCountdown() {
+      clearCountdown();
+      countdownSeconds = TURN_TIMEOUT_SECONDS;
+      turnIndicatorEl.textContent = `Your turn — fire! (${countdownSeconds}s)`;
+      countdownTimer = setInterval(() => {
+        countdownSeconds -= 1;
+        if (countdownSeconds <= 0) {
+          clearCountdown();
+          return;
+        }
+        turnIndicatorEl.textContent = `Your turn — fire! (${countdownSeconds}s)`;
+      }, 1000);
+    }
+
     function updateTurnIndicator() {
+      clearCountdown();
       if (gameOver) {
         turnIndicatorEl.textContent = '';
+        turnIndicatorEl.classList.remove('enemy-turn');
         return;
       }
-      turnIndicatorEl.textContent = turn === myPlayerNumber ? 'Your turn — fire!' : "Opponent's turn…";
       turnIndicatorEl.classList.toggle('enemy-turn', turn !== myPlayerNumber);
+      if (turn === myPlayerNumber) {
+        startCountdown();
+      } else {
+        turnIndicatorEl.textContent = "Opponent's turn…";
+      }
     }
 
     function finishGame(winner, disconnectWin, playSound = true) {
@@ -257,9 +290,20 @@
       }
     }
 
-    function handleOpponentLeftMidGame() {
+    function handleOpponentLeftMidGame(newScore) {
       if (gameOver) return;
+      if (newScore) {
+        score = newScore;
+        updateScoreboard();
+      }
       finishGame(myPlayerNumber, true);
+    }
+
+    /** Server auto-passed a stalled turn — just re-sync, no animation (nothing was fired). */
+    function handleTurnTimeout({ turn: newTurn }) {
+      if (gameOver) return;
+      turn = newTurn;
+      updateTurnIndicator();
     }
 
     /** I've clicked Rematch — tell the server and reflect the waiting state. */
@@ -284,6 +328,14 @@
       }
     }
 
+    /** Called when the player intentionally leaves via the in-battle "Back to Menu"
+     * button — tells the server so the opponent isn't left waiting on a room
+     * that's never coming back (forfeit if a battle was in progress). */
+    function leaveMidGame() {
+      clearCountdown();
+      if (code) socket.emit('leaveRoom', { code });
+    }
+
     playAgainBtn.addEventListener('click', () => {
       if (onExitCallback) onExitCallback();
     });
@@ -298,6 +350,8 @@
       handleShotResult,
       handleOpponentLeftMidGame,
       handleRematchRequested,
+      handleTurnTimeout,
+      leaveMidGame,
       getScore: () => score,
     };
   }

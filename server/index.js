@@ -13,9 +13,21 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // Overridable for fast integration tests; production uses roomManager's
-// defaults (45s to reconnect after a drop, 30s to reap a fully-empty room).
+// defaults (45s to reconnect after a drop, 30s to reap a fully-empty room,
+// 15s to auto-pass a stalled turn).
 const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || RM.PLAYER_RECONNECT_GRACE_MS;
 const EMPTY_ROOM_GRACE_MS = Number(process.env.EMPTY_ROOM_GRACE_MS) || RM.EMPTY_ROOM_GRACE_MS;
+const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS) || RM.TURN_TIMEOUT_MS;
+
+/** (Re)arms the current player's turn clock; on expiry, passes the turn and re-arms for the next player. */
+function armTurnTimeout(room) {
+  RM.scheduleTurnTimeout(room, TURN_TIMEOUT_MS, () => {
+    const result = RM.passTurnOnTimeout(room);
+    if (!result) return; // game ended or room gone between scheduling and firing
+    io.to(room.code).emit('turnTimeout', result);
+    armTurnTimeout(room);
+  });
+}
 
 io.on('connection', (socket) => {
   socket.on('createRoom', (ack) => {
@@ -70,6 +82,7 @@ io.on('connection', (socket) => {
 
     if (result.battleStarted) {
       io.to(room.code).emit('battleStart', { turn: result.turn, score: room.score });
+      armTurnTimeout(room);
     } else if (player) {
       io.to(room.code).emit('placementStatus', { readyPlayerNumber: player.playerNumber });
     }
@@ -96,6 +109,25 @@ io.on('connection', (socket) => {
       winner: result.winner,
       score: result.score,
     });
+
+    if (!result.gameOver) armTurnTimeout(room);
+  });
+
+  socket.on('leaveRoom', ({ code } = {}, ack) => {
+    const room = RM.getRoom(code);
+    if (!room) {
+      if (ack) ack({ ok: true });
+      return;
+    }
+    const result = RM.leaveRoom(room, socket.id);
+    if (ack) ack({ ok: result.ok, error: result.error });
+    if (result.ok && result.opponent) {
+      io.to(room.code).emit('opponentLeft', {
+        playerNumber: result.leavingPlayerNumber,
+        score: result.score,
+      });
+    }
+    RM.deleteRoom(room.code);
   });
 
   socket.on('requestRematch', ({ code } = {}, ack) => {
@@ -124,7 +156,8 @@ io.on('connection', (socket) => {
     if (opponent && opponent.connected) {
       io.to(room.code).emit('opponentDisconnected', { playerNumber: player.playerNumber });
       RM.scheduleForfeit(room, player, RECONNECT_GRACE_MS, () => {
-        io.to(room.code).emit('opponentLeft', { playerNumber: player.playerNumber });
+        const result = RM.forfeitWin(room, player);
+        io.to(room.code).emit('opponentLeft', { playerNumber: player.playerNumber, score: result.score });
         RM.deleteRoom(room.code);
       });
     } else {

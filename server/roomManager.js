@@ -17,6 +17,7 @@ const CODE_WORDS = [
 
 const EMPTY_ROOM_GRACE_MS = 30_000;
 const PLAYER_RECONNECT_GRACE_MS = 45_000;
+const TURN_TIMEOUT_MS = 15_000;
 
 /** @type {Map<string, Room>} */
 const rooms = new Map();
@@ -63,6 +64,7 @@ function createRoom(socketId) {
     score: { 1: 0, 2: 0 }, // wins this room's two seats have earned across rematches
     createdAt: Date.now(),
     emptyTimer: null,
+    turnTimer: null,
   };
   rooms.set(code, room);
   socketToRoom.set(socketId, code);
@@ -154,6 +156,8 @@ function fireShot(room, socketId, row, col) {
     return { ok: false, error: 'Invalid shot.' };
   }
 
+  clearTurnTimeout(room); // player acted in time — caller schedules the next timeout if the game continues
+
   if (result.allSunk) {
     room.status = 'finished';
     room.battle.turn = null;
@@ -207,6 +211,47 @@ function requestRematch(room, socketId) {
   return { ok: true, bothReady, score: room.score };
 }
 
+/**
+ * Called when a player's turn timer expires without them firing: passes
+ * the turn to their opponent. Doesn't declare a winner or end the game —
+ * an AFK/slow player just keeps losing turns until they act, reconnect,
+ * or the separate (much longer) disconnect-forfeit grace period elapses.
+ */
+function passTurnOnTimeout(room) {
+  if (room.status !== 'battle' || !room.battle) return null;
+  const skippedPlayer = room.battle.turn;
+  const nextPlayer = skippedPlayer === 1 ? 2 : 1;
+  room.battle.turn = nextPlayer;
+  return { turn: nextPlayer, skippedPlayer };
+}
+
+/**
+ * Awards the win to `leavingOrDisconnectedPlayer`'s opponent if a battle
+ * was in progress. Shared by voluntary leaveRoom() and the disconnect
+ * forfeit-timer expiry in index.js — same outcome either way, a player
+ * not coming back to finish the game.
+ */
+function forfeitWin(room, leavingOrDisconnectedPlayer) {
+  clearTurnTimeout(room);
+  const opponent = getOpponent(room, leavingOrDisconnectedPlayer);
+  if (room.status === 'battle' && opponent) {
+    room.status = 'finished';
+    if (room.battle) room.battle.turn = null;
+    room.winner = opponent.playerNumber;
+    room.score[opponent.playerNumber] += 1;
+  }
+  return { score: room.score, winner: room.winner };
+}
+
+/** A player intentionally leaves (e.g. clicked "Back to Menu" mid-battle). */
+function leaveRoom(room, socketId) {
+  const player = getPlayer(room, socketId);
+  if (!player) return { ok: false, error: 'Not in this room.' };
+  const opponent = getOpponent(room, player);
+  const { score } = forfeitWin(room, player);
+  return { ok: true, leavingPlayerNumber: player.playerNumber, opponent, score };
+}
+
 /** Everything a client needs to fully rebuild its UI after a reload/reconnect. */
 function buildSnapshot(room, player) {
   const opponent = getOpponent(room, player);
@@ -258,6 +303,22 @@ function scheduleRoomDeletion(room, ms, onExpire) {
   }, ms);
 }
 
+/** Starts (or restarts) the current turn's clock. `onExpire` decides what to broadcast. */
+function scheduleTurnTimeout(room, ms, onExpire) {
+  clearTurnTimeout(room);
+  room.turnTimer = setTimeout(() => {
+    room.turnTimer = null;
+    onExpire();
+  }, ms);
+}
+
+function clearTurnTimeout(room) {
+  if (room.turnTimer) {
+    clearTimeout(room.turnTimer);
+    room.turnTimer = null;
+  }
+}
+
 function clearPlayerTimer(player) {
   if (player.disconnectTimer) {
     clearTimeout(player.disconnectTimer);
@@ -293,12 +354,14 @@ function deleteRoom(code) {
   if (!room) return;
   for (const player of room.players) clearPlayerTimer(player);
   clearRoomTimer(room);
+  clearTurnTimeout(room);
   rooms.delete(code);
 }
 
 module.exports = {
   EMPTY_ROOM_GRACE_MS,
   PLAYER_RECONNECT_GRACE_MS,
+  TURN_TIMEOUT_MS,
   createRoom,
   joinRoom,
   getRoom,
@@ -308,10 +371,15 @@ module.exports = {
   submitPlacement,
   fireShot,
   requestRematch,
+  passTurnOnTimeout,
+  forfeitWin,
+  leaveRoom,
   buildSnapshot,
   disconnectSocket,
   scheduleForfeit,
   scheduleRoomDeletion,
+  scheduleTurnTimeout,
+  clearTurnTimeout,
   rejoin,
   deleteRoom,
 };

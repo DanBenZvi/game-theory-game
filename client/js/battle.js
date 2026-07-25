@@ -16,6 +16,7 @@
     gameOverStatsEl,
     playAgainBtn,
     rematchBtn,
+    onRematchRequested,
   }) {
     let ownState = null;
     let enemyState = null;
@@ -23,7 +24,6 @@
     let turn = 'player';
     let gameOver = false;
     let onExitCallback = null;
-    let lastPlacements = null;
     let lastDifficulty = null;
 
     const ownCellEls = [];
@@ -51,7 +51,6 @@
 
     function start({ placements, difficulty }, onExit) {
       onExitCallback = onExit || null;
-      lastPlacements = placements;
       lastDifficulty = difficulty;
       ownState = L.createBattleState(placements);
       enemyState = L.createBattleState(L.randomPlacement().placements);
@@ -179,11 +178,21 @@
 
     if (rematchBtn) {
       rematchBtn.addEventListener('click', () => {
-        start({ placements: lastPlacements, difficulty: lastDifficulty }, onExitCallback);
+        // Back to placement to re-arrange ships, not an instant restart —
+        // main.js owns that screen transition; we just hand back which
+        // difficulty was in play so it can stay preselected.
+        if (onRematchRequested) onRematchRequested(lastDifficulty);
       });
     }
 
-    return { start };
+    /** Player navigated away mid-game (in-battle "Back to Menu") — reuses the
+     * existing gameOver guards in handleEnemyCellClick/aiTurn/applyResult so
+     * a pending AI setTimeout can't fire a stray shot/sound after they've left. */
+    function leaveMidGame() {
+      gameOver = true;
+    }
+
+    return { start, leaveMidGame };
   }
 
   window.createBattleScreen = createBattleScreen;

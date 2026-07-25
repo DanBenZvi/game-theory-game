@@ -14,11 +14,13 @@ const difficultyPickerEl = document.getElementById('difficultyPicker');
 const placementStatusEl = document.getElementById('placementStatus');
 
 const screens = [menuEl, roomEl, placementEl, battleEl];
+const battleBackBtn = document.getElementById('battleBackBtn');
 function showScreen(el) {
   for (const screen of screens) screen.classList.toggle('hidden', screen !== el);
   el.classList.remove('screen-enter');
   void el.offsetWidth; // restart the entrance animation even if re-entering the same screen
   el.classList.add('screen-enter');
+  battleBackBtn.classList.toggle('hidden', el !== battleEl);
 }
 
 function setRoomStatus(text) {
@@ -50,7 +52,6 @@ muteBtn.addEventListener('click', () => {
   unlockSoundOnce();
   const nowMuted = !SoundEngine.isMuted();
   SoundEngine.setMuted(nowMuted);
-  Music.setMuted(nowMuted);
   muteBtn.textContent = nowMuted ? '🔇' : '🔊';
   muteBtn.classList.toggle('muted', nowMuted);
 });
@@ -93,6 +94,10 @@ const battleScreen = window.createBattleScreen({
   gameOverStatsEl: document.getElementById('gameOverStats'),
   playAgainBtn: document.getElementById('playAgainBtn'),
   rematchBtn,
+  onRematchRequested: (difficulty) => {
+    selectDifficulty(difficulty);
+    startVsComputerFlow();
+  },
 });
 
 const onlineBattleScreen = window.createOnlineBattleScreen(
@@ -118,13 +123,14 @@ let myToken = null;
 let myPlacements = null;
 
 let selectedDifficulty = 'medium';
-document.querySelectorAll('.difficulty-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    selectedDifficulty = btn.dataset.difficulty;
-    document.querySelectorAll('.difficulty-btn').forEach((b) => {
-      b.classList.toggle('selected', b === btn);
-    });
+function selectDifficulty(difficulty) {
+  selectedDifficulty = difficulty;
+  document.querySelectorAll('.difficulty-btn').forEach((b) => {
+    b.classList.toggle('selected', b.dataset.difficulty === difficulty);
   });
+}
+document.querySelectorAll('.difficulty-btn').forEach((btn) => {
+  btn.addEventListener('click', () => selectDifficulty(btn.dataset.difficulty));
 });
 
 function resetOnlineSession() {
@@ -139,13 +145,12 @@ function resetOnlineSession() {
 
 function goToMenu() {
   resetOnlineSession();
-  Music.stop();
   showScreen(menuEl);
 }
 
 // ---------- vs Computer ----------
 
-document.getElementById('vsComputerBtn').addEventListener('click', () => {
+function startVsComputerFlow() {
   resetOnlineSession();
   mode = 'ai';
   difficultyPickerEl.style.display = '';
@@ -155,13 +160,31 @@ document.getElementById('vsComputerBtn').addEventListener('click', () => {
     rematchBtn.classList.remove('hidden');
     onlineRematchBtn.classList.add('hidden');
     scoreboardEl.classList.add('hidden');
-    Music.play();
     battleScreen.start({ placements, difficulty: selectedDifficulty }, goToMenu);
   });
-});
+}
+
+document.getElementById('vsComputerBtn').addEventListener('click', startVsComputerFlow);
 
 document.getElementById('backToMenuBtn').addEventListener('click', goToMenu);
 document.getElementById('roomBackBtn').addEventListener('click', goToMenu);
+
+// In-battle "Back to Menu" — visible throughout the battle screen, not just
+// after it ends. For online play this abandons the match (opponent wins by
+// forfeit if one was in progress), so confirm first; vs-AI has no one else
+// to affect, so it just leaves.
+battleBackBtn.addEventListener('click', () => {
+  if (mode === 'online') {
+    const confirmed = confirm(
+      "Leave and return to the menu? If a match is in progress, your opponent will win by forfeit.",
+    );
+    if (!confirmed) return;
+    onlineBattleScreen.leaveMidGame();
+  } else if (mode === 'ai') {
+    battleScreen.leaveMidGame();
+  }
+  goToMenu();
+});
 
 const copyCodeBtn = document.getElementById('copyCodeBtn');
 copyCodeBtn.addEventListener('click', async () => {
@@ -256,7 +279,6 @@ socket.on('battleStart', ({ turn, score }) => {
   showScreen(battleEl);
   rematchBtn.classList.add('hidden');
   onlineRematchBtn.classList.remove('hidden');
-  Music.play();
   onlineBattleScreen.start(
     { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn, score },
     goToMenu,
@@ -266,6 +288,13 @@ socket.on('battleStart', ({ turn, score }) => {
 socket.on('shotResult', (data) => {
   if (mode !== 'online') return;
   onlineBattleScreen.handleShotResult(data);
+});
+
+socket.on('turnTimeout', (data) => {
+  if (mode !== 'online') return;
+  onlineBattleScreen.handleTurnTimeout(data);
+  showBanner("Turn timed out — it's the other player's turn now.");
+  setTimeout(hideBanner, 2500);
 });
 
 socket.on('rematchRequested', ({ playerNumber }) => {
@@ -291,11 +320,11 @@ socket.on('opponentReconnected', () => {
   setTimeout(hideBanner, 3000);
 });
 
-socket.on('opponentLeft', () => {
+socket.on('opponentLeft', ({ score } = {}) => {
   if (mode !== 'online') return;
   hideBanner();
   if (!battleEl.classList.contains('hidden')) {
-    onlineBattleScreen.handleOpponentLeftMidGame();
+    onlineBattleScreen.handleOpponentLeftMidGame(score);
     clearActiveRoom();
   } else {
     goToMenu();
@@ -324,7 +353,6 @@ socket.on('connect', () => {
       showScreen(battleEl);
       rematchBtn.classList.add('hidden');
       onlineRematchBtn.classList.remove('hidden');
-      if (res.snapshot.status === 'battle') Music.play();
       onlineBattleScreen.resume({ code: roomCode, playerNumber: myPlayerNumber, snapshot: res.snapshot }, goToMenu);
     } else if (res.snapshot.status === 'placing' && res.snapshot.ready) {
       showScreen(roomEl);
