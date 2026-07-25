@@ -2,7 +2,8 @@
 // shot is server-authoritative — firing emits a socket event and the
 // grid only updates when the server's broadcast comes back, for both
 // players' shots alike. Also supports resuming mid-game after a
-// reconnect via a server-provided snapshot.
+// reconnect via a server-provided snapshot (instant, no animations —
+// those are only for shots landing live).
 
 (function () {
   const L = window.BattleshipLogic;
@@ -16,6 +17,7 @@
     let turn = null;
     let gameOver = false;
     let onExitCallback = null;
+    let pendingOutgoingMissile = null;
 
     const ownCellEls = [];
     const enemyCellEls = [];
@@ -48,7 +50,8 @@
       }
     }
 
-    function applyShot(cellEls, row, col, status, shipCells) {
+    /** Instant, no animation/sound — used to replay history on resume/reconnect. */
+    function applyShotInstant(cellEls, row, col, status, shipCells) {
       const cell = cellEls[row][col];
       cell.classList.remove('hit', 'miss', 'sunk');
       cell.classList.add(status === 'miss' ? 'miss' : 'hit');
@@ -60,17 +63,49 @@
       }
     }
 
+    /** Animated + sound — used for shots landing live. */
+    async function applyShotLive(cellEls, row, col, status, shipCells) {
+      const cell = cellEls[row][col];
+      cell.classList.add(status === 'miss' ? 'miss' : 'hit');
+
+      if (status === 'miss') {
+        SoundEngine.splash();
+        BattleEffects.impactMiss(cell);
+        return;
+      }
+
+      SoundEngine.explosion();
+      BattleEffects.impactHit(cell);
+
+      if (status === 'sunk' && shipCells) {
+        const shipCellEls = shipCells.map(({ row: r, col: c }) => cellEls[r][c]);
+        SoundEngine.sunk();
+        await BattleEffects.sinkShip(shipCellEls);
+        for (const el of shipCellEls) {
+          el.classList.remove('hit');
+          el.classList.add('sunk');
+        }
+      }
+    }
+
     function fireAtEnemy(row, col) {
       if (turn !== myPlayerNumber || gameOver) return;
       const cell = enemyCellEls[row][col];
       if (cell.classList.contains('hit') || cell.classList.contains('miss') || cell.classList.contains('sunk')) {
         return;
       }
+
+      turn = null; // lock input while the shot is resolving
+      SoundEngine.fire();
+      pendingOutgoingMissile = BattleEffects.fireMissile(ownGridEl, cell, { color: '#29e0ff' });
+
       socket.emit('fire', { code, row, col }, (ack) => {
-        // Rejections (not your turn / already fired) are rare races —
-        // the authoritative shotResult broadcast (or its absence) is
-        // the real source of truth, so there's nothing to reconcile here.
-        if (!ack.ok) console.warn('fire rejected:', ack.error);
+        if (!ack.ok) {
+          console.warn('fire rejected:', ack.error);
+          pendingOutgoingMissile = null;
+          turn = myPlayerNumber; // rare race (e.g. stale turn) — hand control back
+          updateTurnIndicator();
+        }
       });
     }
 
@@ -83,10 +118,14 @@
       turnIndicatorEl.classList.toggle('enemy-turn', turn !== myPlayerNumber);
     }
 
-    function finishGame(winner, disconnectWin) {
+    function finishGame(winner, disconnectWin, playSound = true) {
       gameOver = true;
       updateTurnIndicator();
       const won = winner === myPlayerNumber;
+      if (playSound) {
+        if (won) SoundEngine.victory();
+        else SoundEngine.defeat();
+      }
       gameOverTitleEl.textContent = won ? 'VICTORY' : 'DEFEAT';
       gameOverTitleEl.classList.toggle('victory', won);
       gameOverTitleEl.classList.toggle('defeat', !won);
@@ -126,24 +165,34 @@
       revealOwnShips(snapshot.myPlacements);
 
       for (const shot of snapshot.opponentShotsOnMe) {
-        applyShot(ownCellEls, shot.row, shot.col, shot.status, shot.cells);
+        applyShotInstant(ownCellEls, shot.row, shot.col, shot.status, shot.cells);
       }
       for (const shot of snapshot.myShotsOnOpponent) {
-        applyShot(enemyCellEls, shot.row, shot.col, shot.status, shot.cells);
+        applyShotInstant(enemyCellEls, shot.row, shot.col, shot.status, shot.cells);
       }
 
       gameOverEl.classList.add('hidden');
       if (gameOver) {
-        finishGame(snapshot.winner, false);
+        finishGame(snapshot.winner, false, false);
       } else {
         updateTurnIndicator();
       }
     }
 
-    function handleShotResult({ by, row, col, status, shipCells, turn: nextTurn, gameOver: over, winner }) {
+    async function handleShotResult({ by, row, col, status, shipCells, turn: nextTurn, gameOver: over, winner }) {
       const isMyShot = by === myPlayerNumber;
       const cellEls = isMyShot ? enemyCellEls : ownCellEls;
-      applyShot(cellEls, row, col, status, shipCells);
+
+      if (isMyShot && pendingOutgoingMissile) {
+        await pendingOutgoingMissile;
+        pendingOutgoingMissile = null;
+      } else if (!isMyShot) {
+        SoundEngine.fire();
+        await BattleEffects.fireMissile(enemyGridEl, ownCellEls[row][col], { color: '#ff5a3c' });
+      }
+
+      await applyShotLive(cellEls, row, col, status, shipCells);
+
       turn = nextTurn;
       if (over) {
         finishGame(winner, false);

@@ -26,6 +26,26 @@ function hideBanner() {
   bannerEl.classList.add('hidden');
 }
 
+// ---------- Sound: unlock on first interaction (browser autoplay policy) ----------
+
+const muteBtn = document.getElementById('muteBtn');
+let soundUnlocked = false;
+function unlockSoundOnce() {
+  if (soundUnlocked) return;
+  soundUnlocked = true;
+  SoundEngine.unlock();
+  SoundEngine.startAmbience();
+}
+document.addEventListener('pointerdown', unlockSoundOnce, { once: true });
+
+muteBtn.addEventListener('click', () => {
+  unlockSoundOnce();
+  const nowMuted = !SoundEngine.isMuted();
+  SoundEngine.setMuted(nowMuted);
+  muteBtn.textContent = nowMuted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('muted', nowMuted);
+});
+
 function saveActiveRoom(code, token, playerNumber) {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ code, token, playerNumber }));
 }

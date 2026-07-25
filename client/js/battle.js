@@ -69,13 +69,17 @@
       updateTurnIndicator();
     }
 
-    function handleEnemyCellClick(row, col) {
+    async function handleEnemyCellClick(row, col) {
       if (turn !== 'player' || gameOver) return;
       if (enemyState.shots.has(L.cellKey(row, col))) return;
 
+      turn = null; // lock input while the shot is resolving
+      SoundEngine.fire();
+      await BattleEffects.fireMissile(ownGridEl, enemyCellEls[row][col], { color: '#29e0ff' });
+
       const result = L.fireAt(enemyState, row, col);
       playerShotCount++;
-      applyResult(enemyCellEls, enemyState, row, col, result);
+      await applyResult(enemyCellEls, enemyState, row, col, result);
 
       if (result.allSunk) {
         finishGame('win');
@@ -86,16 +90,20 @@
       setTimeout(aiTurn, 650);
     }
 
-    function aiTurn() {
+    async function aiTurn() {
       if (gameOver) return;
       const remainingLengths = ownState.placements
         .filter((p) => !L.getShipStatus(ownState, p.id).sunk)
         .map((p) => p.length);
 
       const { row, col } = ai.chooseShot(remainingLengths);
+
+      SoundEngine.fire();
+      await BattleEffects.fireMissile(enemyGridEl, ownCellEls[row][col], { color: '#ff5a3c' });
+
       const result = L.fireAt(ownState, row, col);
       ai.markResult(row, col, result.status);
-      applyResult(ownCellEls, ownState, row, col, result);
+      await applyResult(ownCellEls, ownState, row, col, result);
 
       if (result.allSunk) {
         finishGame('lose');
@@ -105,14 +113,27 @@
       updateTurnIndicator();
     }
 
-    function applyResult(cellEls, state, row, col, result) {
+    async function applyResult(cellEls, state, row, col, result) {
       const cell = cellEls[row][col];
       cell.classList.add(result.status === 'miss' ? 'miss' : 'hit');
+
+      if (result.status === 'miss') {
+        SoundEngine.splash();
+        BattleEffects.impactMiss(cell);
+        return;
+      }
+
+      SoundEngine.explosion();
+      BattleEffects.impactHit(cell);
+
       if (result.status === 'sunk') {
         const ship = state.placements.find((p) => p.id === result.shipId);
-        for (const { row: r, col: c } of ship.cells) {
-          cellEls[r][c].classList.remove('hit');
-          cellEls[r][c].classList.add('sunk');
+        const shipCellEls = ship.cells.map(({ row: r, col: c }) => cellEls[r][c]);
+        SoundEngine.sunk();
+        await BattleEffects.sinkShip(shipCellEls);
+        for (const el of shipCellEls) {
+          el.classList.remove('hit');
+          el.classList.add('sunk');
         }
       }
     }
@@ -129,6 +150,8 @@
     function finishGame(outcome) {
       gameOver = true;
       updateTurnIndicator();
+      if (outcome === 'win') SoundEngine.victory();
+      else SoundEngine.defeat();
       gameOverTitleEl.textContent = outcome === 'win' ? 'VICTORY' : 'DEFEAT';
       gameOverTitleEl.classList.toggle('victory', outcome === 'win');
       gameOverTitleEl.classList.toggle('defeat', outcome === 'lose');

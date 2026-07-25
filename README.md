@@ -5,10 +5,11 @@ friend anywhere in the world with a short room code.
 
 ## Status
 
-Step 4 of 6: real online play between two independent browsers/computers
-— server-authoritative placement + turn sync, live opponent-connected
-banners, and disconnect/reconnect handling with a grace period — on top
-of step 3's vs-AI battle, step 2's ship placement, and step 1's rooms.
+Step 5 of 6: full visual/audio polish on top of step 4's online play —
+missile launch arcs, particle explosions, screen shake, flash on hit,
+splash + ripple on miss, a staggered sinking animation with bubbles, a
+WebAudio-generated sound engine (fire/splash/explosion/sunk/victory/
+defeat/ambience), and a mute toggle.
 
 ## Run locally
 
@@ -20,6 +21,32 @@ npm run dev
 Then open http://localhost:3000 in a browser tab. If that port is already
 in use on your machine, run `PORT=3010 npm run dev` instead and use
 http://localhost:3010.
+
+## Test the visual/audio polish
+
+Sound needs one click anywhere on the page first (browsers block audio
+until a user gesture) — click any button and it unlocks automatically.
+
+1. Start any battle (vs Computer is fastest) and fire at an enemy cell.
+   You should see a glowing missile arc from your board to the target,
+   hear a launch "fire" sound, then on arrival either:
+   - **Hit**: a bright flash, a burst of orange/red particles, the whole
+     battle panel shakes briefly, and an explosion sound.
+   - **Miss**: an expanding ripple ring + a few blue droplet particles,
+     plus a splash sound.
+2. Watch for the AI/opponent firing back — same missile arc, but coming
+   from the enemy board toward yours.
+3. Sink a ship (hit every one of its cells) — its cells should sink in
+   a staggered sequence (each cell darkens/dips a beat after the last)
+   with bubbles rising from each one, plus a deeper "sunk" sound.
+4. Win or lose a game — a victory fanfare or a somber defeat tone plays
+   alongside the VICTORY/DEFEAT overlay.
+5. Click the speaker icon (top-right, on every screen) to mute — all
+   effects and the background ocean hum should go silent immediately;
+   click again to unmute.
+6. While a shot is resolving (missile in flight / impact playing),
+   clicking another enemy cell should do nothing — turns are locked
+   until the animation finishes, so you can't queue up extra shots.
 
 ## Test online play (two tabs, or two computers on the same network)
 
@@ -72,11 +99,15 @@ client/       Static HTML/CSS/JS served by the server
   js/ocean.js        WebGL shader animated ocean background
   js/placement.js    Ship placement screen (grid + drag/drop tray)
   js/ai.js           Client-side AI opponent (easy/medium/hard)
+  js/effects.js      Missile arcs, particle bursts, screen shake, sinking
+                     animation — shared by both battle screens
+  js/sound.js        WebAudio-generated sound engine (no audio files)
   js/battle.js       vs-AI battle screen (two boards, firing, win/lose)
   js/onlineBattle.js Online battle screen — same rendering, but every
                      shot is server-confirmed instead of computed locally
   js/main.js         Screen wiring, Socket.IO client, session persistence
-                     (sessionStorage room token) for reconnect-on-reload
+                     (sessionStorage room token) for reconnect-on-reload,
+                     sound unlock/mute
 shared/       Pure game logic (board/placement/firing rules) usable by
               both the browser and the server, so online mode can't be
               cheated by inspecting/editing the page — the server always
