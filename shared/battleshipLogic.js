@@ -191,6 +191,25 @@
     return history;
   }
 
+  /** Post-game stats for the side that fired the shots recorded in `state`. */
+  function summarizeBattle(state) {
+    const shotsFired = state.shots.size;
+    let hits = 0;
+    for (const key of state.shots) {
+      const [row, col] = key.split(',').map(Number);
+      if (state.grid[row][col]) hits++;
+    }
+    const shipsSunk = state.placements.filter((p) => getShipStatus(state, p.id).sunk).length;
+    return {
+      shotsFired,
+      hits,
+      misses: shotsFired - hits,
+      accuracy: shotsFired > 0 ? Math.round((hits / shotsFired) * 100) : 0,
+      shipsSunk,
+      totalShips: state.placements.length,
+    };
+  }
+
   return {
     BOARD_SIZE,
     SHIP_SPECS,
@@ -208,5 +227,6 @@
     isFleetSunk,
     fireAt,
     getShotHistory,
+    summarizeBattle,
   };
 });

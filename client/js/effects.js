@@ -158,5 +158,28 @@
     });
   }
 
-  window.BattleEffects = { fireMissile, impactHit, impactMiss, sinkShip, shakeScreen };
+  const CONFETTI_COLORS = ['#29e0ff', '#ff5a3c', '#ffe0a3', '#8fd8ff', '#ffffff', '#5fffb0'];
+
+  /** Victory celebration: a few staggered firework bursts at random points across the viewport. */
+  function celebrate() {
+    const burstCount = 5;
+    for (let i = 0; i < burstCount; i++) {
+      setTimeout(() => {
+        const point = {
+          x: window.innerWidth * (0.2 + Math.random() * 0.6),
+          y: window.innerHeight * (0.15 + Math.random() * 0.4),
+        };
+        spawnParticles(point, {
+          count: 26,
+          colors: CONFETTI_COLORS,
+          spread: 130,
+          size: 6,
+          duration: 900,
+          gravity: true,
+        });
+      }, i * 260);
+    }
+  }
+
+  window.BattleEffects = { fireMissile, impactHit, impactMiss, sinkShip, shakeScreen, celebrate };
 })();

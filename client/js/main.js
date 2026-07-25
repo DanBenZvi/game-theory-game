@@ -16,6 +16,14 @@ const placementStatusEl = document.getElementById('placementStatus');
 const screens = [menuEl, roomEl, placementEl, battleEl];
 function showScreen(el) {
   for (const screen of screens) screen.classList.toggle('hidden', screen !== el);
+  el.classList.remove('screen-enter');
+  void el.offsetWidth; // restart the entrance animation even if re-entering the same screen
+  el.classList.add('screen-enter');
+}
+
+function setRoomStatus(text) {
+  roomStatusEl.textContent = text;
+  roomStatusEl.classList.toggle('pulsing', /waiting/i.test(text));
 }
 
 function showBanner(text) {
@@ -70,6 +78,8 @@ const placementScreen = window.createPlacementScreen({
   statusEl: placementStatusEl,
 });
 
+const rematchBtn = document.getElementById('rematchBtn');
+
 const battleScreen = window.createBattleScreen({
   ownGridEl: document.getElementById('ownGrid'),
   enemyGridEl: document.getElementById('enemyGrid'),
@@ -78,6 +88,7 @@ const battleScreen = window.createBattleScreen({
   gameOverTitleEl: document.getElementById('gameOverTitle'),
   gameOverStatsEl: document.getElementById('gameOverStats'),
   playAgainBtn: document.getElementById('playAgainBtn'),
+  rematchBtn,
 });
 
 const onlineBattleScreen = window.createOnlineBattleScreen(
@@ -133,12 +144,27 @@ document.getElementById('vsComputerBtn').addEventListener('click', () => {
   showScreen(placementEl);
   placementScreen.enter((placements) => {
     showScreen(battleEl);
+    rematchBtn.classList.remove('hidden');
     battleScreen.start({ placements, difficulty: selectedDifficulty }, goToMenu);
   });
 });
 
 document.getElementById('backToMenuBtn').addEventListener('click', goToMenu);
 document.getElementById('roomBackBtn').addEventListener('click', goToMenu);
+
+const copyCodeBtn = document.getElementById('copyCodeBtn');
+copyCodeBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(roomCodeEl.textContent);
+    const original = copyCodeBtn.textContent;
+    copyCodeBtn.textContent = '✓ Copied!';
+    setTimeout(() => {
+      copyCodeBtn.textContent = original;
+    }, 1500);
+  } catch (err) {
+    console.warn('Clipboard copy failed:', err);
+  }
+});
 
 // ---------- Online: create/join ----------
 
@@ -178,10 +204,11 @@ function enterRoom(code, playerNumber, token) {
 
   showScreen(roomEl);
   roomCodeEl.textContent = code;
-  roomStatusEl.textContent =
+  setRoomStatus(
     playerNumber === 1
       ? 'Waiting for opponent…'
-      : 'Connected as Player 2. Waiting for battle to start…';
+      : 'Connected as Player 2. Waiting for battle to start…',
+  );
 }
 
 socket.on('opponentJoined', () => {
@@ -212,6 +239,7 @@ socket.on('placementStatus', ({ readyPlayerNumber }) => {
 socket.on('battleStart', ({ turn }) => {
   if (mode !== 'online') return;
   showScreen(battleEl);
+  rematchBtn.classList.add('hidden');
   onlineBattleScreen.start(
     { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn },
     goToMenu,
@@ -267,11 +295,12 @@ socket.on('connect', () => {
 
     if (res.snapshot.status === 'battle' || res.snapshot.status === 'finished') {
       showScreen(battleEl);
+      rematchBtn.classList.add('hidden');
       onlineBattleScreen.resume({ code: roomCode, playerNumber: myPlayerNumber, snapshot: res.snapshot }, goToMenu);
     } else if (res.snapshot.status === 'placing' && res.snapshot.ready) {
       showScreen(roomEl);
       roomCodeEl.textContent = roomCode;
-      roomStatusEl.textContent = 'Reconnected — waiting for opponent to finish placing their fleet…';
+      setRoomStatus('Reconnected — waiting for opponent to finish placing their fleet…');
     } else {
       difficultyPickerEl.style.display = 'none';
       showScreen(placementEl);

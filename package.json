@@ -5,6 +5,9 @@
   "description": "Hypervisual online Battleship — play vs computer or a friend anywhere via room codes",
   "type": "commonjs",
   "main": "server/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js"

@@ -15,14 +15,16 @@
     gameOverTitleEl,
     gameOverStatsEl,
     playAgainBtn,
+    rematchBtn,
   }) {
     let ownState = null;
     let enemyState = null;
     let ai = null;
     let turn = 'player';
     let gameOver = false;
-    let playerShotCount = 0;
     let onExitCallback = null;
+    let lastPlacements = null;
+    let lastDifficulty = null;
 
     const ownCellEls = [];
     const enemyCellEls = [];
@@ -49,12 +51,13 @@
 
     function start({ placements, difficulty }, onExit) {
       onExitCallback = onExit || null;
+      lastPlacements = placements;
+      lastDifficulty = difficulty;
       ownState = L.createBattleState(placements);
       enemyState = L.createBattleState(L.randomPlacement().placements);
       ai = AI.createAI(difficulty);
       turn = 'player';
       gameOver = false;
-      playerShotCount = 0;
 
       buildGrid(ownGridEl, ownCellEls, null);
       buildGrid(enemyGridEl, enemyCellEls, handleEnemyCellClick);
@@ -78,7 +81,6 @@
       await BattleEffects.fireMissile(ownGridEl, enemyCellEls[row][col], { color: '#29e0ff' });
 
       const result = L.fireAt(enemyState, row, col);
-      playerShotCount++;
       await applyResult(enemyCellEls, enemyState, row, col, result);
 
       if (result.allSunk) {
@@ -150,21 +152,36 @@
     function finishGame(outcome) {
       gameOver = true;
       updateTurnIndicator();
-      if (outcome === 'win') SoundEngine.victory();
-      else SoundEngine.defeat();
-      gameOverTitleEl.textContent = outcome === 'win' ? 'VICTORY' : 'DEFEAT';
-      gameOverTitleEl.classList.toggle('victory', outcome === 'win');
-      gameOverTitleEl.classList.toggle('defeat', outcome === 'lose');
+      const won = outcome === 'win';
+      if (won) {
+        SoundEngine.victory();
+        BattleEffects.celebrate();
+      } else {
+        SoundEngine.defeat();
+      }
+
+      const myStats = L.summarizeBattle(enemyState); // my shots fired at the enemy fleet
+
+      gameOverTitleEl.textContent = won ? 'VICTORY' : 'DEFEAT';
+      gameOverTitleEl.classList.toggle('victory', won);
+      gameOverTitleEl.classList.toggle('defeat', !won);
       gameOverStatsEl.textContent =
-        outcome === 'win'
-          ? `You sank the enemy fleet in ${playerShotCount} shots.`
-          : 'Your fleet has been destroyed.';
+        `Shots fired: ${myStats.shotsFired} · Hits: ${myStats.hits} · Accuracy: ${myStats.accuracy}% · ` +
+        (won
+          ? `Enemy fleet: ${myStats.shipsSunk}/${myStats.totalShips} sunk`
+          : `You sank ${myStats.shipsSunk}/${myStats.totalShips} enemy ships`);
       gameOverEl.classList.remove('hidden');
     }
 
     playAgainBtn.addEventListener('click', () => {
       if (onExitCallback) onExitCallback();
     });
+
+    if (rematchBtn) {
+      rematchBtn.addEventListener('click', () => {
+        start({ placements: lastPlacements, difficulty: lastDifficulty }, onExitCallback);
+      });
+    }
 
     return { start };
   }

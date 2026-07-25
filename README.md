@@ -5,11 +5,12 @@ friend anywhere in the world with a short room code.
 
 ## Status
 
-Step 5 of 6: full visual/audio polish on top of step 4's online play —
-missile launch arcs, particle explosions, screen shake, flash on hit,
-splash + ripple on miss, a staggered sinking animation with bubbles, a
-WebAudio-generated sound engine (fire/splash/explosion/sunk/victory/
-defeat/ambience), and a mute toggle.
+Step 6 of 6 — feature-complete. Final polish on top of step 5's visual/
+audio pass: post-game stats (shots, hits, accuracy, ships sunk) on every
+win/lose screen, a victory fireworks/confetti burst, a rematch button for
+vs-AI, screen-entrance transitions, a copy-to-clipboard room code, and a
+responsive layout fix for narrow screens. See [DEPLOY.md](DEPLOY.md) for
+hosting notes (Railway/Render/Fly.io).
 
 ## Run locally
 
@@ -21,6 +22,22 @@ npm run dev
 Then open http://localhost:3000 in a browser tab. If that port is already
 in use on your machine, run `PORT=3010 npm run dev` instead and use
 http://localhost:3010.
+
+## Test the final polish pass
+
+1. Play a full vs-AI game to the end. The win/lose overlay should show a
+   stats line — shots fired, hits, accuracy %, and ships sunk out of 5 —
+   and on a win, a multi-burst firework/confetti animation plays.
+2. On a win, click **Play Again** — it should instantly start a fresh
+   battle reusing the *same* fleet placement against a newly-shuffled
+   enemy, no trip back through the menu. **Back to Menu** still works too.
+3. On the room-code screen, click the **⧉ Copy** button next to the code
+   — it should copy to your clipboard and briefly show "✓ Copied!".
+4. Notice screens fade/slide in as you navigate (menu → placement →
+   battle) instead of snapping instantly.
+5. Resize the browser down to a phone-width window (or open dev tools'
+   device toolbar) — the layout should reflow to a single column with no
+   horizontal scrollbar, on the menu, placement, and battle screens alike.
 
 ## Test the visual/audio polish
 
@@ -112,4 +129,10 @@ shared/       Pure game logic (board/placement/firing rules) usable by
               both the browser and the server, so online mode can't be
               cheated by inspecting/editing the page — the server always
               recomputes hit/miss/sunk itself via the same fireAt().
+DEPLOY.md     Hosting notes (Railway/Render/Fly.io) and the state-model
+              caveat (single instance only — game state is in memory).
 ```
+
+## Deploying
+
+See [DEPLOY.md](DEPLOY.md).

@@ -18,9 +18,17 @@
     let gameOver = false;
     let onExitCallback = null;
     let pendingOutgoingMissile = null;
+    let myStats = { shotsFired: 0, hits: 0, shipsSunk: 0 };
 
     const ownCellEls = [];
     const enemyCellEls = [];
+
+    function deriveStatsFromHistory(history) {
+      const shotsFired = history.length;
+      const hits = history.filter((h) => h.status !== 'miss').length;
+      const shipsSunk = new Set(history.filter((h) => h.status === 'sunk').map((h) => h.shipId)).size;
+      return { shotsFired, hits, shipsSunk };
+    }
 
     function buildGrid(container, cellEls, onCellClick) {
       container.innerHTML = '';
@@ -123,17 +131,24 @@
       updateTurnIndicator();
       const won = winner === myPlayerNumber;
       if (playSound) {
-        if (won) SoundEngine.victory();
-        else SoundEngine.defeat();
+        if (won) {
+          SoundEngine.victory();
+          BattleEffects.celebrate();
+        } else {
+          SoundEngine.defeat();
+        }
       }
       gameOverTitleEl.textContent = won ? 'VICTORY' : 'DEFEAT';
       gameOverTitleEl.classList.toggle('victory', won);
       gameOverTitleEl.classList.toggle('defeat', !won);
-      gameOverStatsEl.textContent = disconnectWin
-        ? 'Your opponent left the game.'
-        : won
-          ? 'You sank the enemy fleet!'
-          : 'Your fleet has been destroyed.';
+
+      const accuracy = myStats.shotsFired > 0 ? Math.round((myStats.hits / myStats.shotsFired) * 100) : 0;
+      const statsLine =
+        `Shots fired: ${myStats.shotsFired} · Hits: ${myStats.hits} · Accuracy: ${accuracy}% · ` +
+        (won
+          ? `Enemy fleet: ${myStats.shipsSunk}/${L.SHIP_SPECS.length} sunk`
+          : `You sank ${myStats.shipsSunk}/${L.SHIP_SPECS.length} enemy ships`);
+      gameOverStatsEl.textContent = disconnectWin ? `Your opponent left the game. ${statsLine}` : statsLine;
       gameOverEl.classList.remove('hidden');
     }
 
@@ -143,6 +158,7 @@
       turn = startingTurn;
       gameOver = false;
       onExitCallback = onExit || null;
+      myStats = { shotsFired: 0, hits: 0, shipsSunk: 0 };
 
       buildGrid(ownGridEl, ownCellEls, null);
       buildGrid(enemyGridEl, enemyCellEls, fireAtEnemy);
@@ -159,6 +175,7 @@
       turn = snapshot.turn;
       gameOver = snapshot.status === 'finished';
       onExitCallback = onExit || null;
+      myStats = deriveStatsFromHistory(snapshot.myShotsOnOpponent);
 
       buildGrid(ownGridEl, ownCellEls, null);
       buildGrid(enemyGridEl, enemyCellEls, fireAtEnemy);
@@ -189,6 +206,12 @@
       } else if (!isMyShot) {
         SoundEngine.fire();
         await BattleEffects.fireMissile(enemyGridEl, ownCellEls[row][col], { color: '#ff5a3c' });
+      }
+
+      if (isMyShot) {
+        myStats.shotsFired++;
+        if (status !== 'miss') myStats.hits++;
+        if (status === 'sunk') myStats.shipsSunk++;
       }
 
       await applyShotLive(cellEls, row, col, status, shipCells);
