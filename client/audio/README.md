@@ -1,22 +1,17 @@
 # Battle music
 
-Drop your own licensed audio file here, named exactly:
+Background music is now **fully procedural** — generated at runtime by
+`client/js/music.js` with WebAudio, the same technique used for the sound
+effects in `client/js/sound.js`. There's no audio file to add here
+anymore, nothing to license, and nothing that needs to travel with the
+repo — it works identically in dev and in any deployment.
 
-```
-client/audio/battle-theme.mp3
-```
+This directory is kept around (and still gitignored below) only as a
+safety net, in case an earlier local experiment left an audio file
+sitting here — it won't be picked up by anything and won't get
+accidentally committed.
 
-It will automatically loop as background music for the duration of a
-battle (both vs-AI and online), fading in when a battle starts and out
-when you leave it, and it responds to the existing mute button. Nothing
-else needs to change — `client/js/music.js` looks for that exact path.
-
-**You need to supply this file yourself.** This project doesn't ship
-with any music because most tracks worth using (film/TV scores, popular
-songs, etc.) are copyrighted — including the "Main Title" theme
-requested for this game. Use a file you have the rights to: something
-you purchased, a track under a license that permits this use (e.g.
-Creative Commons / royalty-free), or your own composition.
-
-If no file is present, the game runs normally with no background music
-— sound effects and the ocean ambience are unaffected.
+If you'd rather use a real licensed/purchased track instead of the
+synthesized one, that's a straightforward swap in `client/js/music.js`
+(replace the scheduler with an `<audio>` element pointing at your file)
+— ask and it can be wired back up the same way it was before.

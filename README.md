@@ -16,11 +16,12 @@ Since then: fixed a real bug where the hit-flash/miss-ripple effects were
 rendering across the *entire board* instead of the single cell they hit
 (missing `position: relative` on `.cell`); fixed a board-flicker-on-every-hit
 bug caused by animating `transform` on the same element that carries
-`backdrop-filter` (a known browser rendering trap); added optional
-background battle music — see [client/audio/README.md](client/audio/README.md)
-to enable it; and added a mutual rematch flow for online play with a
-running scoreboard that persists across replays in the same room, plus a
-richer victory fanfare.
+`backdrop-filter` (a known browser rendering trap); added a mutual
+rematch flow for online play with a running scoreboard that persists
+across replays in the same room; and added background battle music —
+fully original and procedurally generated with WebAudio (no licensed
+track needed, nothing to attribute, works the same in dev and in
+production) — plus a richer victory fanfare.
 
 ## Rematch & scoreboard (online)
 
@@ -50,12 +51,12 @@ http://localhost:3010.
    ripple (miss) should stay contained inside that one cell, not flare
    across the whole board. The screen-shake on a hit should read as a
    quick, smooth decaying wobble, not a jerky diagonal jolt.
-2. To enable background music: add your own licensed audio file at
-   `client/audio/battle-theme.mp3` (see [client/audio/README.md](client/audio/README.md)
-   for why this project can't ship one). Start a battle — it should fade
-   in and loop, fade out when you return to the menu, and mute/unmute
-   with the existing speaker button. Without a file there, the game
-   plays exactly as before (silently skipped, one console note).
+2. Start any battle — an original, procedurally-generated theme (driving
+   bass line, chord pad, melody, soft percussion — no audio file, all
+   synthesized live) should fade in and loop for as long as the battle
+   lasts, fade out when you return to the menu, and mute/unmute with the
+   existing speaker button. Works identically after a deployment, since
+   there's no file that could go missing.
 
 ## Test the final polish pass
 
@@ -153,16 +154,15 @@ client/       Static HTML/CSS/JS served by the server
   js/effects.js      Missile arcs, particle bursts, screen shake, sinking
                      animation — shared by both battle screens
   js/sound.js        WebAudio-generated sound engine (no audio files)
-  js/music.js        Optional looping background battle music — plays a
-                     user-supplied file (client/audio/battle-theme.mp3);
-                     fails silently and harmlessly if it's not there
+  js/music.js        Original, procedurally-generated looping battle
+                     music (WebAudio lookahead scheduler) — no audio
+                     file, nothing to license
   js/battle.js       vs-AI battle screen (two boards, firing, win/lose)
   js/onlineBattle.js Online battle screen — same rendering, but every
                      shot is server-confirmed instead of computed locally
   js/main.js         Screen wiring, Socket.IO client, session persistence
                      (sessionStorage room token) for reconnect-on-reload,
                      sound unlock/mute
-  audio/README.md    Where to put your own licensed battle-theme.mp3
 shared/       Pure game logic (board/placement/firing rules) usable by
               both the browser and the server, so online mode can't be
               cheated by inspecting/editing the page — the server always
