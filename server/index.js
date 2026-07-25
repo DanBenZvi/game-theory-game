@@ -13,6 +13,7 @@ const {
 
 const app = express();
 app.use(express.static(path.join(__dirname, '..', 'client')));
+app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
 
 const server = http.createServer(app);
 const io = new Server(server);

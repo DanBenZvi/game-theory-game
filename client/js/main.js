@@ -2,9 +2,36 @@ const socket = io();
 
 const menuEl = document.getElementById('menu');
 const roomEl = document.getElementById('room');
+const placementEl = document.getElementById('placement');
 const menuErrorEl = document.getElementById('menuError');
 const roomCodeEl = document.getElementById('roomCode');
 const roomStatusEl = document.getElementById('roomStatus');
+
+const screens = [menuEl, roomEl, placementEl];
+function showScreen(el) {
+  for (const screen of screens) screen.classList.toggle('hidden', screen !== el);
+}
+
+const placementScreen = window.createPlacementScreen({
+  gridEl: document.getElementById('placementGrid'),
+  trayEl: document.getElementById('shipTray'),
+  rotateBtn: document.getElementById('rotateBtn'),
+  randomizeBtn: document.getElementById('randomizeBtn'),
+  readyBtn: document.getElementById('readyBtn'),
+  statusEl: document.getElementById('placementStatus'),
+});
+
+document.getElementById('vsComputerBtn').addEventListener('click', () => {
+  showScreen(placementEl);
+  placementScreen.enter((placements) => {
+    document.getElementById('placementStatus').textContent =
+      `Fleet locked (${placements.length} ships). Battle logic arrives in step 3!`;
+  });
+});
+
+document.getElementById('backToMenuBtn').addEventListener('click', () => {
+  showScreen(menuEl);
+});
 
 document.getElementById('createBtn').addEventListener('click', () => {
   setError('');
@@ -34,7 +61,7 @@ document.getElementById('joinBtn').addEventListener('click', () => {
 });
 
 socket.on('opponentJoined', () => {
-  roomStatusEl.textContent = 'Opponent connected! (placement coming in step 2)';
+  roomStatusEl.textContent = 'Opponent connected! (online sync arrives in step 4)';
 });
 
 socket.on('opponentDisconnected', () => {
@@ -42,8 +69,7 @@ socket.on('opponentDisconnected', () => {
 });
 
 function enterRoom(code, playerNumber) {
-  menuEl.classList.add('hidden');
-  roomEl.classList.remove('hidden');
+  showScreen(roomEl);
   roomCodeEl.textContent = code;
   roomStatusEl.textContent =
     playerNumber === 1
