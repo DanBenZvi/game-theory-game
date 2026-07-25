@@ -112,6 +112,61 @@
     return true;
   }
 
+  function cellKey(row, col) {
+    return row + ',' + col;
+  }
+
+  /**
+   * A "battle board" is one side's fleet plus every shot fired *at* it.
+   * Both the client (vs. AI) and, later, the server (online mode) drive
+   * their turn loop through this same fireAt() so hit/miss/sunk rules
+   * can't drift between the two.
+   */
+  function createBattleState(placements, size = BOARD_SIZE) {
+    const grid = createEmptyGrid(size);
+    for (const p of placements) placeShip(grid, p.cells, p.id);
+    const hitsByShip = {};
+    for (const p of placements) hitsByShip[p.id] = new Set();
+    return { grid, placements, size, shots: new Set(), hitsByShip };
+  }
+
+  function getShipStatus(state, shipId) {
+    const placement = state.placements.find((p) => p.id === shipId);
+    const hits = state.hitsByShip[shipId];
+    return { length: placement.length, hits: hits.size, sunk: hits.size === placement.length };
+  }
+
+  function isFleetSunk(state) {
+    return state.placements.every((p) => getShipStatus(state, p.id).sunk);
+  }
+
+  /**
+   * Fires at (row, col) on `state`. Mutates `state` (records the shot and,
+   * on a hit, credits the owning ship). Returns a result describing what
+   * happened — callers use this both to update the UI and (server-side,
+   * later) to decide whose turn is next.
+   */
+  function fireAt(state, row, col) {
+    if (!isInBounds(row, col, state.size)) {
+      return { status: 'invalid', row, col };
+    }
+    const key = cellKey(row, col);
+    if (state.shots.has(key)) {
+      return { status: 'already-fired', row, col };
+    }
+    state.shots.add(key);
+
+    const shipId = state.grid[row][col];
+    if (!shipId) {
+      return { status: 'miss', row, col };
+    }
+
+    state.hitsByShip[shipId].add(key);
+    const { sunk } = getShipStatus(state, shipId);
+    const allSunk = sunk && isFleetSunk(state);
+    return { status: sunk ? 'sunk' : 'hit', row, col, shipId, sunk, allSunk };
+  }
+
   return {
     BOARD_SIZE,
     SHIP_SPECS,
@@ -123,5 +178,10 @@
     removeShip,
     randomPlacement,
     validateFullPlacement,
+    cellKey,
+    createBattleState,
+    getShipStatus,
+    isFleetSunk,
+    fireAt,
   };
 });

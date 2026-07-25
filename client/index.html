@@ -37,6 +37,14 @@
           <h2>Deploy Your Fleet</h2>
           <div id="shipTray" class="ship-tray"></div>
           <p id="placementStatus" class="status"></p>
+          <div id="difficultyPicker" class="difficulty-picker">
+            <p class="label">AI Difficulty</p>
+            <div class="difficulty-options">
+              <button class="btn difficulty-btn" data-difficulty="easy">Easy</button>
+              <button class="btn difficulty-btn selected" data-difficulty="medium">Medium</button>
+              <button class="btn difficulty-btn" data-difficulty="hard">Hard</button>
+            </div>
+          </div>
           <div class="tray-actions">
             <button id="rotateBtn" class="btn">Rotate (R)</button>
             <button id="randomizeBtn" class="btn">Randomize</button>
@@ -46,12 +54,38 @@
         </aside>
       </div>
     </section>
+
+    <section id="battle" class="screen hidden">
+      <p id="turnIndicator" class="turn-indicator"></p>
+      <div class="battle-layout">
+        <div class="board-col">
+          <h3>Your Fleet</h3>
+          <div class="board-wrap">
+            <div id="ownGrid" class="grid battle-grid"></div>
+          </div>
+        </div>
+        <div class="board-col">
+          <h3>Enemy Waters</h3>
+          <div class="board-wrap">
+            <div id="enemyGrid" class="grid battle-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="gameOverOverlay" class="game-over hidden">
+        <p id="gameOverTitle" class="game-over-title"></p>
+        <p id="gameOverStats" class="game-over-stats"></p>
+        <button id="playAgainBtn" class="btn btn-primary">Back to Menu</button>
+      </div>
+    </section>
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/shared/battleshipLogic.js"></script>
   <script src="js/ocean.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/placement.js"></script>
+  <script src="js/battle.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

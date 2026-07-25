@@ -5,9 +5,9 @@ friend anywhere in the world with a short room code.
 
 ## Status
 
-Step 2 of 6: animated WebGL ocean background, neon 10x10 grid, and full
-ship-placement UX (drag-and-drop with snap, rotate, randomize). Room
-create/join works (step 1). No battle logic yet — that's step 3.
+Step 3 of 6: full turn-based battle vs. a client-side AI (Easy/Medium/Hard),
+on top of step 2's animated ocean + ship placement and step 1's room
+create/join. Online play (syncing two real players) is step 4.
 
 ## Run locally
 
@@ -20,22 +20,32 @@ Then open http://localhost:3000 in a browser tab. If that port is already
 in use on your machine, run `PORT=3010 npm run dev` instead and use
 http://localhost:3010.
 
-## Test the ship placement screen
+## Test a full game vs. the AI
 
 1. Open the app, click **Play vs Computer**.
-2. You should see an animated dark-water background behind a glowing
-   10x10 grid, with a "Deploy Your Fleet" tray of 5 ships (lengths 5, 4,
-   3, 3, 2) on the right.
-3. Drag a ship from the tray onto the grid — cells should light up cyan
-   (valid) or orange (overlapping/out of bounds) as you drag, and the
-   ship should snap into place on drop.
-4. Grab a ship again (from the tray or the board) and press **R**, or
-   click **Rotate**, to flip it between horizontal/vertical.
-5. Click **Randomize** — all 5 ships should place themselves validly and
-   the **Ready** button should light up.
-6. Click **Ready** — placement locks (battle logic arrives in step 3).
-7. **Back to Menu** should return cleanly, and re-entering **Play vs
-   Computer** should start from an empty board each time.
+2. Place your fleet (drag ships or click **Randomize**), pick a
+   difficulty (**Easy** / **Medium** / **Hard**) in the tray panel, then
+   click **Ready**.
+3. You land on the battle screen: **Your Fleet** (left, ships visible)
+   and **Enemy Waters** (right, fog of war). "Your turn — fire!" shows
+   at the top.
+4. Click any cell on **Enemy Waters** to fire. It should light up red
+   (hit) or show a small dot (miss). The turn indicator switches to
+   "Enemy turn…" and, after a short pause, the AI fires back — watch a
+   cell light up on **Your Fleet**.
+5. Sinking every cell of one ship should turn that ship's cells a
+   darker "sunk" color on the board that owns it.
+6. Play to the end — a **VICTORY** or **DEFEAT** overlay appears with a
+   shot count, and **Back to Menu** returns you to the main menu.
+7. Try a difficulty comparison: **Hard** should feel noticeably sharper
+   once it lands a hit (it hunts adjacent cells immediately) than
+   **Easy** (which fires blindly at random even after a hit).
+
+## Test the ship placement screen — from step 2, still works
+
+Same as before: drag-and-drop with snap preview, **R**/**Rotate** to
+flip a ship, **Randomize**, **Back to Menu** always returns to a clean
+menu and re-entering starts from an empty board.
 
 ## Test room create/join (two tabs) — from step 1, still works
 
@@ -52,8 +62,11 @@ server/       Node.js + Express + Socket.IO — authoritative game server
 client/       Static HTML/CSS/JS served by the server
   js/ocean.js       WebGL shader animated ocean background
   js/placement.js   Ship placement screen (grid + drag/drop tray)
+  js/ai.js          Client-side AI opponent (easy/medium/hard)
+  js/battle.js       Turn-based battle screen (two boards, firing, win/lose)
   js/main.js        Menu/room/screen wiring, Socket.IO client
-shared/       Pure game logic (board/ship placement) usable by both the
-              browser and the server — server-side validation reuses
-              this in step 4 instead of trusting the client.
+shared/       Pure game logic (board/placement/firing rules) usable by
+              both the browser and the server — server-side validation
+              in step 4 will reuse the exact same fireAt()/createBattleState()
+              instead of trusting the client.
 ```

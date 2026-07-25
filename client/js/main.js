@@ -3,11 +3,12 @@ const socket = io();
 const menuEl = document.getElementById('menu');
 const roomEl = document.getElementById('room');
 const placementEl = document.getElementById('placement');
+const battleEl = document.getElementById('battle');
 const menuErrorEl = document.getElementById('menuError');
 const roomCodeEl = document.getElementById('roomCode');
 const roomStatusEl = document.getElementById('roomStatus');
 
-const screens = [menuEl, roomEl, placementEl];
+const screens = [menuEl, roomEl, placementEl, battleEl];
 function showScreen(el) {
   for (const screen of screens) screen.classList.toggle('hidden', screen !== el);
 }
@@ -21,11 +22,33 @@ const placementScreen = window.createPlacementScreen({
   statusEl: document.getElementById('placementStatus'),
 });
 
+const battleScreen = window.createBattleScreen({
+  ownGridEl: document.getElementById('ownGrid'),
+  enemyGridEl: document.getElementById('enemyGrid'),
+  turnIndicatorEl: document.getElementById('turnIndicator'),
+  gameOverEl: document.getElementById('gameOverOverlay'),
+  gameOverTitleEl: document.getElementById('gameOverTitle'),
+  gameOverStatsEl: document.getElementById('gameOverStats'),
+  playAgainBtn: document.getElementById('playAgainBtn'),
+});
+
+let selectedDifficulty = 'medium';
+document.querySelectorAll('.difficulty-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    selectedDifficulty = btn.dataset.difficulty;
+    document.querySelectorAll('.difficulty-btn').forEach((b) => {
+      b.classList.toggle('selected', b === btn);
+    });
+  });
+});
+
 document.getElementById('vsComputerBtn').addEventListener('click', () => {
   showScreen(placementEl);
   placementScreen.enter((placements) => {
-    document.getElementById('placementStatus').textContent =
-      `Fleet locked (${placements.length} ships). Battle logic arrives in step 3!`;
+    showScreen(battleEl);
+    battleScreen.start({ placements, difficulty: selectedDifficulty }, () => {
+      showScreen(menuEl);
+    });
   });
 });
 
