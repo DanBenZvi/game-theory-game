@@ -51,12 +51,13 @@ http://localhost:3010.
    ripple (miss) should stay contained inside that one cell, not flare
    across the whole board. The screen-shake on a hit should read as a
    quick, smooth decaying wobble, not a jerky diagonal jolt.
-2. Start any battle — an original, procedurally-generated theme (driving
-   bass line, chord pad, melody, soft percussion — no audio file, all
-   synthesized live) should fade in and loop for as long as the battle
-   lasts, fade out when you return to the menu, and mute/unmute with the
-   existing speaker button. Works identically after a deployment, since
-   there's no file that could go missing.
+2. Start any battle — an original, procedurally-generated orchestral-style
+   theme (long swelling string-like chords, a sustained singing melody,
+   a synthetic hall reverb, a distant timpani-like roll — no audio file,
+   all synthesized live) should fade in and loop for as long as the
+   battle lasts, fade out when you return to the menu, and mute/unmute
+   with the existing speaker button. Works identically after a
+   deployment, since there's no file that could go missing.
 
 ## Test the final polish pass
 
