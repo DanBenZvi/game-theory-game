@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Battleship</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main id="app">
+    <h1 class="title">BATTLESHIP</h1>
+
+    <section id="menu" class="panel">
+      <button id="createBtn" class="btn btn-primary">Create Room</button>
+      <div class="join-row">
+        <input id="joinInput" type="text" placeholder="ROOM CODE" maxlength="10" />
+        <button id="joinBtn" class="btn">Join</button>
+      </div>
+      <p id="menuError" class="error"></p>
+    </section>
+
+    <section id="room" class="panel hidden">
+      <p class="label">Room Code</p>
+      <p id="roomCode" class="room-code"></p>
+      <p id="roomStatus" class="status">Waiting for opponent…</p>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

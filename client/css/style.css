@@ -1,0 +1,145 @@
+:root {
+  --navy: #061224;
+  --navy-deep: #030812;
+  --cyan: #29e0ff;
+  --cyan-dim: #0f7c94;
+  --orange: #ff5a3c;
+  --text: #e8f6fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at top, var(--navy) 0%, var(--navy-deep) 70%);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.title {
+  font-size: 3rem;
+  letter-spacing: 0.3em;
+  margin: 0;
+  color: var(--cyan);
+  text-shadow: 0 0 12px var(--cyan), 0 0 32px var(--cyan-dim);
+}
+
+.panel {
+  background: rgba(10, 26, 46, 0.6);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 0 24px rgba(41, 224, 255, 0.08);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.btn {
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.btn:hover {
+  background: rgba(41, 224, 255, 0.12);
+  box-shadow: 0 0 16px rgba(41, 224, 255, 0.4);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--cyan);
+  color: var(--navy-deep);
+  font-weight: 600;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 20px var(--cyan);
+}
+
+.join-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+#joinInput {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.75rem;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-width: 0;
+}
+
+#joinInput:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+
+.error {
+  color: var(--orange);
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.label {
+  margin: 0;
+  color: var(--cyan-dim);
+  letter-spacing: 0.1em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.room-code {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  text-shadow: 0 0 16px var(--cyan);
+  margin: 0;
+}
+
+.status {
+  color: var(--text);
+  opacity: 0.8;
+  margin: 0;
+}
