@@ -6,7 +6,7 @@
 
 (function () {
   const TRACK_SRC = 'audio/battle-theme.mp3';
-  const TARGET_VOLUME = 0.35;
+  const TARGET_VOLUME = 0.16;
   const FADE_MS = 900;
 
   let audio = null;
