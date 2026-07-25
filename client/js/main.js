@@ -1,5 +1,7 @@
 const socket = io();
 
+const STORAGE_KEY = 'battleship:activeRoom';
+
 const menuEl = document.getElementById('menu');
 const roomEl = document.getElementById('room');
 const placementEl = document.getElementById('placement');
@@ -7,10 +9,36 @@ const battleEl = document.getElementById('battle');
 const menuErrorEl = document.getElementById('menuError');
 const roomCodeEl = document.getElementById('roomCode');
 const roomStatusEl = document.getElementById('roomStatus');
+const bannerEl = document.getElementById('onlineBanner');
+const difficultyPickerEl = document.getElementById('difficultyPicker');
+const placementStatusEl = document.getElementById('placementStatus');
 
 const screens = [menuEl, roomEl, placementEl, battleEl];
 function showScreen(el) {
   for (const screen of screens) screen.classList.toggle('hidden', screen !== el);
+}
+
+function showBanner(text) {
+  bannerEl.textContent = text;
+  bannerEl.classList.remove('hidden');
+}
+function hideBanner() {
+  bannerEl.classList.add('hidden');
+}
+
+function saveActiveRoom(code, token, playerNumber) {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ code, token, playerNumber }));
+}
+function loadActiveRoom() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function clearActiveRoom() {
+  sessionStorage.removeItem(STORAGE_KEY);
 }
 
 const placementScreen = window.createPlacementScreen({
@@ -19,7 +47,7 @@ const placementScreen = window.createPlacementScreen({
   rotateBtn: document.getElementById('rotateBtn'),
   randomizeBtn: document.getElementById('randomizeBtn'),
   readyBtn: document.getElementById('readyBtn'),
-  statusEl: document.getElementById('placementStatus'),
+  statusEl: placementStatusEl,
 });
 
 const battleScreen = window.createBattleScreen({
@@ -32,6 +60,25 @@ const battleScreen = window.createBattleScreen({
   playAgainBtn: document.getElementById('playAgainBtn'),
 });
 
+const onlineBattleScreen = window.createOnlineBattleScreen(
+  {
+    ownGridEl: document.getElementById('ownGrid'),
+    enemyGridEl: document.getElementById('enemyGrid'),
+    turnIndicatorEl: document.getElementById('turnIndicator'),
+    gameOverEl: document.getElementById('gameOverOverlay'),
+    gameOverTitleEl: document.getElementById('gameOverTitle'),
+    gameOverStatsEl: document.getElementById('gameOverStats'),
+    playAgainBtn: document.getElementById('playAgainBtn'),
+  },
+  socket,
+);
+
+let mode = null; // 'ai' | 'online'
+let roomCode = null;
+let myPlayerNumber = null;
+let myToken = null;
+let myPlacements = null;
+
 let selectedDifficulty = 'medium';
 document.querySelectorAll('.difficulty-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -42,19 +89,38 @@ document.querySelectorAll('.difficulty-btn').forEach((btn) => {
   });
 });
 
+function resetOnlineSession() {
+  mode = null;
+  roomCode = null;
+  myPlayerNumber = null;
+  myToken = null;
+  myPlacements = null;
+  clearActiveRoom();
+  hideBanner();
+}
+
+function goToMenu() {
+  resetOnlineSession();
+  showScreen(menuEl);
+}
+
+// ---------- vs Computer ----------
+
 document.getElementById('vsComputerBtn').addEventListener('click', () => {
+  resetOnlineSession();
+  mode = 'ai';
+  difficultyPickerEl.style.display = '';
   showScreen(placementEl);
   placementScreen.enter((placements) => {
     showScreen(battleEl);
-    battleScreen.start({ placements, difficulty: selectedDifficulty }, () => {
-      showScreen(menuEl);
-    });
+    battleScreen.start({ placements, difficulty: selectedDifficulty }, goToMenu);
   });
 });
 
-document.getElementById('backToMenuBtn').addEventListener('click', () => {
-  showScreen(menuEl);
-});
+document.getElementById('backToMenuBtn').addEventListener('click', goToMenu);
+document.getElementById('roomBackBtn').addEventListener('click', goToMenu);
+
+// ---------- Online: create/join ----------
 
 document.getElementById('createBtn').addEventListener('click', () => {
   setError('');
@@ -63,7 +129,7 @@ document.getElementById('createBtn').addEventListener('click', () => {
       setError(res.error || 'Could not create room.');
       return;
     }
-    enterRoom(res.code, res.playerNumber);
+    enterRoom(res.code, res.playerNumber, res.token);
   });
 });
 
@@ -79,19 +145,17 @@ document.getElementById('joinBtn').addEventListener('click', () => {
       setError(res.error || 'Could not join room.');
       return;
     }
-    enterRoom(res.code, res.playerNumber);
+    enterRoom(res.code, res.playerNumber, res.token);
   });
 });
 
-socket.on('opponentJoined', () => {
-  roomStatusEl.textContent = 'Opponent connected! (online sync arrives in step 4)';
-});
+function enterRoom(code, playerNumber, token) {
+  mode = 'online';
+  roomCode = code;
+  myPlayerNumber = playerNumber;
+  myToken = token;
+  saveActiveRoom(code, token, playerNumber);
 
-socket.on('opponentDisconnected', () => {
-  roomStatusEl.textContent = 'Opponent disconnected.';
-});
-
-function enterRoom(code, playerNumber) {
   showScreen(roomEl);
   roomCodeEl.textContent = code;
   roomStatusEl.textContent =
@@ -99,6 +163,117 @@ function enterRoom(code, playerNumber) {
       ? 'Waiting for opponent…'
       : 'Connected as Player 2. Waiting for battle to start…';
 }
+
+socket.on('opponentJoined', () => {
+  if (mode !== 'online') return;
+  difficultyPickerEl.style.display = 'none';
+  showScreen(placementEl);
+  placementScreen.enter((placements) => {
+    myPlacements = placements;
+    socket.emit('submitPlacement', { code: roomCode, placements }, (res) => {
+      if (!res.ok) {
+        placementStatusEl.textContent = res.error || 'Placement rejected.';
+        return;
+      }
+      if (!res.battleStarted) {
+        placementStatusEl.textContent = 'Waiting for opponent to finish placing their fleet…';
+      }
+    });
+  });
+});
+
+socket.on('placementStatus', ({ readyPlayerNumber }) => {
+  if (mode !== 'online' || placementEl.classList.contains('hidden')) return;
+  if (readyPlayerNumber !== myPlayerNumber) {
+    placementStatusEl.textContent = 'Opponent is ready. Finish placing your fleet!';
+  }
+});
+
+socket.on('battleStart', ({ turn }) => {
+  if (mode !== 'online') return;
+  showScreen(battleEl);
+  onlineBattleScreen.start(
+    { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn },
+    goToMenu,
+  );
+});
+
+socket.on('shotResult', (data) => {
+  if (mode !== 'online') return;
+  onlineBattleScreen.handleShotResult(data);
+});
+
+// ---------- Disconnect / reconnect / forfeit ----------
+
+socket.on('opponentDisconnected', () => {
+  if (mode !== 'online') return;
+  showBanner('Opponent disconnected — waiting for them to reconnect…');
+});
+
+socket.on('opponentReconnected', () => {
+  if (mode !== 'online') return;
+  showBanner('Opponent reconnected!');
+  setTimeout(hideBanner, 3000);
+});
+
+socket.on('opponentLeft', () => {
+  if (mode !== 'online') return;
+  hideBanner();
+  if (!battleEl.classList.contains('hidden')) {
+    onlineBattleScreen.handleOpponentLeftMidGame();
+    clearActiveRoom();
+  } else {
+    goToMenu();
+    setError('Opponent left the game.');
+  }
+});
+
+// ---------- Resume an in-progress room after a page reload ----------
+
+socket.on('connect', () => {
+  const saved = loadActiveRoom();
+  if (!saved) return;
+
+  socket.emit('rejoinRoom', { code: saved.code, token: saved.token }, (res) => {
+    if (!res.ok) {
+      clearActiveRoom();
+      return;
+    }
+    mode = 'online';
+    roomCode = saved.code;
+    myPlayerNumber = res.snapshot.playerNumber;
+    myToken = saved.token;
+    myPlacements = res.snapshot.myPlacements;
+
+    if (res.snapshot.status === 'battle' || res.snapshot.status === 'finished') {
+      showScreen(battleEl);
+      onlineBattleScreen.resume({ code: roomCode, playerNumber: myPlayerNumber, snapshot: res.snapshot }, goToMenu);
+    } else if (res.snapshot.status === 'placing' && res.snapshot.ready) {
+      showScreen(roomEl);
+      roomCodeEl.textContent = roomCode;
+      roomStatusEl.textContent = 'Reconnected — waiting for opponent to finish placing their fleet…';
+    } else {
+      difficultyPickerEl.style.display = 'none';
+      showScreen(placementEl);
+      placementScreen.enter((placements) => {
+        myPlacements = placements;
+        socket.emit('submitPlacement', { code: roomCode, placements }, (submitRes) => {
+          if (!submitRes.ok) {
+            placementStatusEl.textContent = submitRes.error || 'Placement rejected.';
+            return;
+          }
+          if (!submitRes.battleStarted) {
+            placementStatusEl.textContent = 'Waiting for opponent to finish placing their fleet…';
+          }
+        });
+      });
+    }
+
+    if (!res.snapshot.opponentConnected && res.snapshot.status !== 'finished') {
+      showBanner('Opponent disconnected — waiting for them to reconnect…');
+    }
+  });
+});
 
 function setError(msg) {
   menuErrorEl.textContent = msg;

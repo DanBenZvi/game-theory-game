@@ -5,9 +5,10 @@ friend anywhere in the world with a short room code.
 
 ## Status
 
-Step 3 of 6: full turn-based battle vs. a client-side AI (Easy/Medium/Hard),
-on top of step 2's animated ocean + ship placement and step 1's room
-create/join. Online play (syncing two real players) is step 4.
+Step 4 of 6: real online play between two independent browsers/computers
+— server-authoritative placement + turn sync, live opponent-connected
+banners, and disconnect/reconnect handling with a grace period — on top
+of step 3's vs-AI battle, step 2's ship placement, and step 1's rooms.
 
 ## Run locally
 
@@ -20,53 +21,64 @@ Then open http://localhost:3000 in a browser tab. If that port is already
 in use on your machine, run `PORT=3010 npm run dev` instead and use
 http://localhost:3010.
 
-## Test a full game vs. the AI
+## Test online play (two tabs, or two computers on the same network)
 
-1. Open the app, click **Play vs Computer**.
-2. Place your fleet (drag ships or click **Randomize**), pick a
-   difficulty (**Easy** / **Medium** / **Hard**) in the tray panel, then
-   click **Ready**.
-3. You land on the battle screen: **Your Fleet** (left, ships visible)
-   and **Enemy Waters** (right, fog of war). "Your turn — fire!" shows
-   at the top.
-4. Click any cell on **Enemy Waters** to fire. It should light up red
-   (hit) or show a small dot (miss). The turn indicator switches to
-   "Enemy turn…" and, after a short pause, the AI fires back — watch a
-   cell light up on **Your Fleet**.
-5. Sinking every cell of one ship should turn that ship's cells a
-   darker "sunk" color on the board that owns it.
-6. Play to the end — a **VICTORY** or **DEFEAT** overlay appears with a
-   shot count, and **Back to Menu** returns you to the main menu.
-7. Try a difficulty comparison: **Hard** should feel noticeably sharper
-   once it lands a hit (it hunts adjacent cells immediately) than
-   **Easy** (which fires blindly at random even after a hit).
+1. In **Tab/Computer A**, click **Create Room**. Note the room code
+   (e.g. `WAVE-42`).
+2. In **Tab/Computer B** (for two computers, use A's local network IP
+   instead of `localhost`, e.g. `http://192.168.1.23:3000`), enter that
+   code and click **Join**.
+3. Both should automatically advance to the placement screen the moment
+   the second player joins — no "Ready to start?" step needed.
+4. Both place a fleet (drag or **Randomize**) and click **Ready**. The
+   first to click sees "Waiting for opponent…"; both advance to the
+   battle screen together the instant both are ready.
+5. Player 1 (the room creator) goes first. Fire on **Enemy Waters** —
+   the hit/miss should appear on *both* screens (your enemy view and
+   their own-fleet view), and the turn indicator should swap sides.
+6. Play it out — sinking a ship reveals its full outline to the
+   attacker; the loser's screen and winner's screen both show the
+   correct VICTORY/DEFEAT overlay.
+7. **Disconnect test**: mid-game, reload one tab. The other tab should
+   show an "Opponent disconnected…" banner; once the reloaded tab comes
+   back, it should land right back on the battle screen with your fleet,
+   every shot fired so far, and whose turn it is all intact — and the
+   other tab's banner should switch to "Opponent reconnected!".
+8. **Forfeit test**: mid-game, close one tab entirely (don't reload) and
+   wait about 45 seconds. The remaining tab should get a VICTORY screen
+   noting the opponent left.
+
+## Test a full game vs. the AI — from step 3, still works
+
+Same as before: **Play vs Computer**, place your fleet, pick a
+difficulty, fire until VICTORY/DEFEAT.
 
 ## Test the ship placement screen — from step 2, still works
 
-Same as before: drag-and-drop with snap preview, **R**/**Rotate** to
-flip a ship, **Randomize**, **Back to Menu** always returns to a clean
-menu and re-entering starts from an empty board.
-
-## Test room create/join (two tabs) — from step 1, still works
-
-1. Open the app in **Tab A**, click **Create Room**. Note the room code
-   shown (e.g. `WAVE-42`).
-2. Open the app in **Tab B**, enter that code, click **Join**.
-3. Both tabs should update to "Opponent connected!"
-4. Close Tab B and confirm Tab A shows "Opponent disconnected."
+Drag-and-drop with snap preview, **R**/**Rotate** to flip a ship,
+**Randomize**, **Back to Menu** always returns to a clean menu.
 
 ## Project structure
 
 ```
-server/       Node.js + Express + Socket.IO — authoritative game server
+server/
+  index.js          Express + Socket.IO wiring — translates socket
+                     events into roomManager calls and broadcasts
+  roomManager.js     Authoritative room/game state machine (pure, no
+                     socket.io references — unit-testable on its own):
+                     room codes, placement validation, turn-by-turn
+                     firing, disconnect grace timers, reconnect tokens
 client/       Static HTML/CSS/JS served by the server
-  js/ocean.js       WebGL shader animated ocean background
-  js/placement.js   Ship placement screen (grid + drag/drop tray)
-  js/ai.js          Client-side AI opponent (easy/medium/hard)
-  js/battle.js       Turn-based battle screen (two boards, firing, win/lose)
-  js/main.js        Menu/room/screen wiring, Socket.IO client
+  js/ocean.js        WebGL shader animated ocean background
+  js/placement.js    Ship placement screen (grid + drag/drop tray)
+  js/ai.js           Client-side AI opponent (easy/medium/hard)
+  js/battle.js       vs-AI battle screen (two boards, firing, win/lose)
+  js/onlineBattle.js Online battle screen — same rendering, but every
+                     shot is server-confirmed instead of computed locally
+  js/main.js         Screen wiring, Socket.IO client, session persistence
+                     (sessionStorage room token) for reconnect-on-reload
 shared/       Pure game logic (board/placement/firing rules) usable by
-              both the browser and the server — server-side validation
-              in step 4 will reuse the exact same fireAt()/createBattleState()
-              instead of trusting the client.
+              both the browser and the server, so online mode can't be
+              cheated by inspecting/editing the page — the server always
+              recomputes hit/miss/sunk itself via the same fireAt().
 ```

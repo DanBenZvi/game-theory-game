@@ -69,6 +69,23 @@ body.ocean-fallback #oceanCanvas {
   text-shadow: 0 0 12px var(--cyan), 0 0 32px var(--cyan-dim);
 }
 
+.online-banner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 600;
+  margin: 0;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(255, 90, 60, 0.18);
+  border: 1px solid rgba(255, 90, 60, 0.6);
+  color: var(--text);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 16px rgba(255, 90, 60, 0.35);
+}
+
 .panel {
   background: rgba(10, 26, 46, 0.6);
   border: 1px solid var(--cyan-dim);

@@ -167,6 +167,30 @@
     return { status: sunk ? 'sunk' : 'hit', row, col, shipId, sunk, allSunk };
   }
 
+  /**
+   * Replays every shot already fired at `state` into a transport-friendly
+   * list — used to rebuild a client's board after a reload/reconnect.
+   * Sunk ships include their `cells` (safe to reveal; no longer secret).
+   */
+  function getShotHistory(state) {
+    const history = [];
+    for (const key of state.shots) {
+      const [row, col] = key.split(',').map(Number);
+      const shipId = state.grid[row][col];
+      if (!shipId) {
+        history.push({ row, col, status: 'miss' });
+        continue;
+      }
+      const { sunk } = getShipStatus(state, shipId);
+      const entry = { row, col, status: sunk ? 'sunk' : 'hit', shipId };
+      if (sunk) {
+        entry.cells = state.placements.find((p) => p.id === shipId).cells;
+      }
+      history.push(entry);
+    }
+    return history;
+  }
+
   return {
     BOARD_SIZE,
     SHIP_SPECS,
@@ -183,5 +207,6 @@
     getShipStatus,
     isFleetSunk,
     fireAt,
+    getShotHistory,
   };
 });

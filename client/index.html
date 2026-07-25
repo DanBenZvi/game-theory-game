@@ -11,6 +11,7 @@
 
   <main id="app">
     <h1 class="title">BATTLESHIP</h1>
+    <p id="onlineBanner" class="online-banner hidden"></p>
 
     <section id="menu" class="panel">
       <button id="vsComputerBtn" class="btn btn-primary">Play vs Computer</button>
@@ -26,6 +27,7 @@
       <p class="label">Room Code</p>
       <p id="roomCode" class="room-code"></p>
       <p id="roomStatus" class="status">Waiting for opponent…</p>
+      <button id="roomBackBtn" class="btn btn-ghost">← Back to Menu</button>
     </section>
 
     <section id="placement" class="screen hidden">
@@ -86,6 +88,7 @@
   <script src="js/ai.js"></script>
   <script src="js/placement.js"></script>
   <script src="js/battle.js"></script>
+  <script src="js/onlineBattle.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
