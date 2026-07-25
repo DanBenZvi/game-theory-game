@@ -80,6 +80,9 @@ const placementScreen = window.createPlacementScreen({
 });
 
 const rematchBtn = document.getElementById('rematchBtn');
+const onlineRematchBtn = document.getElementById('onlineRematchBtn');
+const scoreboardEl = document.getElementById('scoreboard');
+const rematchStatusEl = document.getElementById('rematchStatus');
 
 const battleScreen = window.createBattleScreen({
   ownGridEl: document.getElementById('ownGrid'),
@@ -97,10 +100,13 @@ const onlineBattleScreen = window.createOnlineBattleScreen(
     ownGridEl: document.getElementById('ownGrid'),
     enemyGridEl: document.getElementById('enemyGrid'),
     turnIndicatorEl: document.getElementById('turnIndicator'),
+    scoreboardEl,
     gameOverEl: document.getElementById('gameOverOverlay'),
     gameOverTitleEl: document.getElementById('gameOverTitle'),
     gameOverStatsEl: document.getElementById('gameOverStats'),
+    rematchStatusEl,
     playAgainBtn: document.getElementById('playAgainBtn'),
+    onlineRematchBtn,
   },
   socket,
 );
@@ -147,6 +153,8 @@ document.getElementById('vsComputerBtn').addEventListener('click', () => {
   placementScreen.enter((placements) => {
     showScreen(battleEl);
     rematchBtn.classList.remove('hidden');
+    onlineRematchBtn.classList.add('hidden');
+    scoreboardEl.classList.add('hidden');
     Music.play();
     battleScreen.start({ placements, difficulty: selectedDifficulty }, goToMenu);
   });
@@ -214,8 +222,7 @@ function enterRoom(code, playerNumber, token) {
   );
 }
 
-socket.on('opponentJoined', () => {
-  if (mode !== 'online') return;
+function enterOnlinePlacement() {
   difficultyPickerEl.style.display = 'none';
   showScreen(placementEl);
   placementScreen.enter((placements) => {
@@ -230,6 +237,11 @@ socket.on('opponentJoined', () => {
       }
     });
   });
+}
+
+socket.on('opponentJoined', () => {
+  if (mode !== 'online') return;
+  enterOnlinePlacement();
 });
 
 socket.on('placementStatus', ({ readyPlayerNumber }) => {
@@ -239,13 +251,14 @@ socket.on('placementStatus', ({ readyPlayerNumber }) => {
   }
 });
 
-socket.on('battleStart', ({ turn }) => {
+socket.on('battleStart', ({ turn, score }) => {
   if (mode !== 'online') return;
   showScreen(battleEl);
   rematchBtn.classList.add('hidden');
+  onlineRematchBtn.classList.remove('hidden');
   Music.play();
   onlineBattleScreen.start(
-    { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn },
+    { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn, score },
     goToMenu,
   );
 });
@@ -253,6 +266,16 @@ socket.on('battleStart', ({ turn }) => {
 socket.on('shotResult', (data) => {
   if (mode !== 'online') return;
   onlineBattleScreen.handleShotResult(data);
+});
+
+socket.on('rematchRequested', ({ playerNumber }) => {
+  if (mode !== 'online') return;
+  onlineBattleScreen.handleRematchRequested(playerNumber);
+});
+
+socket.on('rematchStart', () => {
+  if (mode !== 'online') return;
+  enterOnlinePlacement();
 });
 
 // ---------- Disconnect / reconnect / forfeit ----------
@@ -300,6 +323,7 @@ socket.on('connect', () => {
     if (res.snapshot.status === 'battle' || res.snapshot.status === 'finished') {
       showScreen(battleEl);
       rematchBtn.classList.add('hidden');
+      onlineRematchBtn.classList.remove('hidden');
       if (res.snapshot.status === 'battle') Music.play();
       onlineBattleScreen.resume({ code: roomCode, playerNumber: myPlayerNumber, snapshot: res.snapshot }, goToMenu);
     } else if (res.snapshot.status === 'placing' && res.snapshot.ready) {
@@ -307,20 +331,7 @@ socket.on('connect', () => {
       roomCodeEl.textContent = roomCode;
       setRoomStatus('Reconnected — waiting for opponent to finish placing their fleet…');
     } else {
-      difficultyPickerEl.style.display = 'none';
-      showScreen(placementEl);
-      placementScreen.enter((placements) => {
-        myPlacements = placements;
-        socket.emit('submitPlacement', { code: roomCode, placements }, (submitRes) => {
-          if (!submitRes.ok) {
-            placementStatusEl.textContent = submitRes.error || 'Placement rejected.';
-            return;
-          }
-          if (!submitRes.battleStarted) {
-            placementStatusEl.textContent = 'Waiting for opponent to finish placing their fleet…';
-          }
-        });
-      });
+      enterOnlinePlacement();
     }
 
     if (!res.snapshot.opponentConnected && res.snapshot.status !== 'finished') {

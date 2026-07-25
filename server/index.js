@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
     if (!result.ok) return;
 
     if (result.battleStarted) {
-      io.to(room.code).emit('battleStart', { turn: result.turn });
+      io.to(room.code).emit('battleStart', { turn: result.turn, score: room.score });
     } else if (player) {
       io.to(room.code).emit('placementStatus', { readyPlayerNumber: player.playerNumber });
     }
@@ -94,7 +94,26 @@ io.on('connection', (socket) => {
       turn: result.nextTurn,
       gameOver: result.gameOver,
       winner: result.winner,
+      score: result.score,
     });
+  });
+
+  socket.on('requestRematch', ({ code } = {}, ack) => {
+    const room = RM.getRoom(code);
+    if (!room) {
+      ack({ ok: false, error: 'Room not found.' });
+      return;
+    }
+    const player = RM.getPlayer(room, socket.id);
+    const result = RM.requestRematch(room, socket.id);
+    ack(result);
+    if (!result.ok) return;
+
+    if (result.bothReady) {
+      io.to(room.code).emit('rematchStart', { score: result.score });
+    } else if (player) {
+      io.to(room.code).emit('rematchRequested', { playerNumber: player.playerNumber });
+    }
   });
 
   socket.on('disconnect', () => {

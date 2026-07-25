@@ -468,6 +468,26 @@ body.ocean-fallback #oceanCanvas {
 
 /* ---------- Battle screen ---------- */
 
+.scoreboard {
+  text-align: center;
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.scoreboard .score-you {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.scoreboard .score-opponent {
+  color: var(--orange);
+  font-weight: 700;
+}
+
 .turn-indicator {
   text-align: center;
   font-size: 1.3rem;

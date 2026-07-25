@@ -12,7 +12,7 @@ const L = require('../shared/battleshipLogic');
 
 const CODE_WORDS = [
   'WAVE', 'REEF', 'TIDE', 'CORAL', 'STORM', 'DEEP', 'SALT', 'FLEET',
-  'ANCHOR', 'SONAR', 'MIST', 'SHOAL', 'CREST', 'SWELL', 'HULL',
+  'ANCHOR', 'SONAR', 'MIST', 'SHOAL', 'CREST', 'SWELL', 'HULL', 'DanISking'
 ];
 
 const EMPTY_ROOM_GRACE_MS = 30_000;
@@ -51,14 +51,16 @@ function createRoom(socketId) {
     connected: true,
     placements: null,
     ready: false,
+    rematchReady: false,
     disconnectTimer: null,
   };
   const room = {
     code,
     players: [player],
-    status: 'waiting', // waiting -> placing -> battle -> finished
+    status: 'waiting', // waiting -> placing -> battle -> finished -> (rematch) placing -> ...
     battle: null, // { boards: { 1: battleState, 2: battleState }, turn: 1|2|null }
     winner: null,
+    score: { 1: 0, 2: 0 }, // wins this room's two seats have earned across rematches
     createdAt: Date.now(),
     emptyTimer: null,
   };
@@ -83,6 +85,7 @@ function joinRoom(code, socketId) {
     connected: true,
     placements: null,
     ready: false,
+    rematchReady: false,
     disconnectTimer: null,
   };
   room.players.push(player);
@@ -155,6 +158,7 @@ function fireShot(room, socketId, row, col) {
     room.status = 'finished';
     room.battle.turn = null;
     room.winner = player.playerNumber;
+    room.score[player.playerNumber] += 1;
   } else {
     room.battle.turn = opponent.playerNumber;
   }
@@ -172,7 +176,35 @@ function fireShot(room, socketId, row, col) {
     nextTurn: room.battle.turn,
     gameOver: Boolean(result.allSunk),
     winner: room.winner,
+    score: room.score,
   };
+}
+
+/**
+ * Marks `socketId`'s side ready for a rematch. Once both sides are ready,
+ * resets the room back to a fresh placement phase (score carries over).
+ */
+function requestRematch(room, socketId) {
+  const player = getPlayer(room, socketId);
+  if (!player) return { ok: false, error: 'Not in this room.' };
+  if (room.status !== 'finished') return { ok: false, error: 'No finished game to rematch.' };
+
+  player.rematchReady = true;
+  const opponent = getOpponent(room, player);
+  const bothReady = Boolean(opponent && opponent.rematchReady);
+
+  if (bothReady) {
+    for (const p of room.players) {
+      p.placements = null;
+      p.ready = false;
+      p.rematchReady = false;
+    }
+    room.battle = null;
+    room.winner = null;
+    room.status = 'placing';
+  }
+
+  return { ok: true, bothReady, score: room.score };
 }
 
 /** Everything a client needs to fully rebuild its UI after a reload/reconnect. */
@@ -191,6 +223,9 @@ function buildSnapshot(room, player) {
       battle && opponent ? L.getShotHistory(battle.boards[opponent.playerNumber]) : [],
     opponentShotsOnMe: battle ? L.getShotHistory(battle.boards[player.playerNumber]) : [],
     winner: room.winner,
+    score: room.score,
+    myRematchReady: player.rematchReady,
+    opponentRematchReady: Boolean(opponent && opponent.rematchReady),
   };
 }
 
@@ -272,6 +307,7 @@ module.exports = {
   getOpponent,
   submitPlacement,
   fireShot,
+  requestRematch,
   buildSnapshot,
   disconnectSocket,
   scheduleForfeit,

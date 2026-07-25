@@ -105,9 +105,19 @@
   }
 
   function victory() {
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      playTone({ freq: f, duration: 0.55, type: 'triangle', gain: 0.18, delay: i * 0.14 });
+    // Quick rising arpeggio (C5-E5-G5-C6)...
+    const arpeggio = [523.25, 659.25, 783.99, 1046.5];
+    const stepMs = 0.11;
+    arpeggio.forEach((f, i) => {
+      playTone({ freq: f, duration: 0.45, type: 'triangle', gain: 0.16, delay: i * stepMs });
     });
+    // ...resolving into a bright layered major chord for a triumphant finish.
+    const chordDelay = arpeggio.length * stepMs + 0.02;
+    [1046.5, 1318.5, 1568.0, 2093.0].forEach((f) => {
+      playTone({ freq: f, duration: 0.9, type: 'triangle', gain: 0.14, delay: chordDelay });
+    });
+    // A touch of high sparkle on top of the chord.
+    playTone({ freq: 3135.96, duration: 0.5, type: 'sine', gain: 0.09, delay: chordDelay + 0.05 });
   }
 
   function defeat() {

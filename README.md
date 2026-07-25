@@ -14,9 +14,24 @@ hosting notes (Railway/Render/Fly.io).
 
 Since then: fixed a real bug where the hit-flash/miss-ripple effects were
 rendering across the *entire board* instead of the single cell they hit
-(missing `position: relative` on `.cell`), smoothed the screen-shake
-animation, and added optional background battle music — see
-[client/audio/README.md](client/audio/README.md) to enable it.
+(missing `position: relative` on `.cell`); fixed a board-flicker-on-every-hit
+bug caused by animating `transform` on the same element that carries
+`backdrop-filter` (a known browser rendering trap); added optional
+background battle music — see [client/audio/README.md](client/audio/README.md)
+to enable it; and added a mutual rematch flow for online play with a
+running scoreboard that persists across replays in the same room, plus a
+richer victory fanfare.
+
+## Rematch & scoreboard (online)
+
+After a game ends, either player can click **Rematch**. Nothing resets
+until *both* sides click it (mirrors the placement-ready flow) — the
+side who clicked first sees "Waiting for opponent…", the other sees
+"Opponent wants a rematch!". Once both agree, the room goes straight
+back to placement with a running score (`YOU 2 — 1 OPPONENT`) that
+persists across as many rematches as you play, resetting only when you
+leave the room. vs-AI still uses its own instant, no-confirmation-needed
+**Play Again** button — no server round-trip needed there.
 
 ## Run locally
 

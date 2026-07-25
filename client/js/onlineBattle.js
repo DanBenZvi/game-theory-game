@@ -3,13 +3,25 @@
 // grid only updates when the server's broadcast comes back, for both
 // players' shots alike. Also supports resuming mid-game after a
 // reconnect via a server-provided snapshot (instant, no animations —
-// those are only for shots landing live).
+// those are only for shots landing live), and a mutual rematch flow
+// that keeps a running score across replays in the same room.
 
 (function () {
   const L = window.BattleshipLogic;
 
   function createOnlineBattleScreen(
-    { ownGridEl, enemyGridEl, turnIndicatorEl, gameOverEl, gameOverTitleEl, gameOverStatsEl, playAgainBtn },
+    {
+      ownGridEl,
+      enemyGridEl,
+      turnIndicatorEl,
+      scoreboardEl,
+      gameOverEl,
+      gameOverTitleEl,
+      gameOverStatsEl,
+      rematchStatusEl,
+      playAgainBtn,
+      onlineRematchBtn,
+    },
     socket,
   ) {
     let code = null;
@@ -19,6 +31,7 @@
     let onExitCallback = null;
     let pendingOutgoingMissile = null;
     let myStats = { shotsFired: 0, hits: 0, shipsSunk: 0 };
+    let score = { 1: 0, 2: 0 };
 
     const ownCellEls = [];
     const enemyCellEls = [];
@@ -56,6 +69,16 @@
           ownCellEls[row][col].classList.add('ship');
         }
       }
+    }
+
+    function updateScoreboard() {
+      if (!scoreboardEl || !myPlayerNumber) return;
+      const opponentNumber = myPlayerNumber === 1 ? 2 : 1;
+      const mine = score[myPlayerNumber] || 0;
+      const theirs = score[opponentNumber] || 0;
+      scoreboardEl.innerHTML =
+        `<span class="score-you">YOU ${mine}</span> — <span class="score-opponent">${theirs} OPPONENT</span>`;
+      scoreboardEl.classList.remove('hidden');
     }
 
     /** Instant, no animation/sound — used to replay history on resume/reconnect. */
@@ -149,22 +172,26 @@
           ? `Enemy fleet: ${myStats.shipsSunk}/${L.SHIP_SPECS.length} sunk`
           : `You sank ${myStats.shipsSunk}/${L.SHIP_SPECS.length} enemy ships`);
       gameOverStatsEl.textContent = disconnectWin ? `Your opponent left the game. ${statsLine}` : statsLine;
+      if (rematchStatusEl) rematchStatusEl.textContent = '';
+      if (onlineRematchBtn) onlineRematchBtn.disabled = false;
       gameOverEl.classList.remove('hidden');
     }
 
-    function start({ code: roomCode, playerNumber, placements, turn: startingTurn }, onExit) {
+    function start({ code: roomCode, playerNumber, placements, turn: startingTurn, score: startingScore }, onExit) {
       code = roomCode;
       myPlayerNumber = playerNumber;
       turn = startingTurn;
       gameOver = false;
       onExitCallback = onExit || null;
       myStats = { shotsFired: 0, hits: 0, shipsSunk: 0 };
+      score = startingScore || score;
 
       buildGrid(ownGridEl, ownCellEls, null);
       buildGrid(enemyGridEl, enemyCellEls, fireAtEnemy);
       revealOwnShips(placements);
 
       gameOverEl.classList.add('hidden');
+      updateScoreboard();
       updateTurnIndicator();
     }
 
@@ -176,6 +203,7 @@
       gameOver = snapshot.status === 'finished';
       onExitCallback = onExit || null;
       myStats = deriveStatsFromHistory(snapshot.myShotsOnOpponent);
+      score = snapshot.score || score;
 
       buildGrid(ownGridEl, ownCellEls, null);
       buildGrid(enemyGridEl, enemyCellEls, fireAtEnemy);
@@ -188,6 +216,7 @@
         applyShotInstant(enemyCellEls, shot.row, shot.col, shot.status, shot.cells);
       }
 
+      updateScoreboard();
       gameOverEl.classList.add('hidden');
       if (gameOver) {
         finishGame(snapshot.winner, false, false);
@@ -196,7 +225,7 @@
       }
     }
 
-    async function handleShotResult({ by, row, col, status, shipCells, turn: nextTurn, gameOver: over, winner }) {
+    async function handleShotResult({ by, row, col, status, shipCells, turn: nextTurn, gameOver: over, winner, score: newScore }) {
       const isMyShot = by === myPlayerNumber;
       const cellEls = isMyShot ? enemyCellEls : ownCellEls;
 
@@ -217,6 +246,10 @@
       await applyShotLive(cellEls, row, col, status, shipCells);
 
       turn = nextTurn;
+      if (newScore) {
+        score = newScore;
+        updateScoreboard();
+      }
       if (over) {
         finishGame(winner, false);
       } else {
@@ -229,11 +262,44 @@
       finishGame(myPlayerNumber, true);
     }
 
+    /** I've clicked Rematch — tell the server and reflect the waiting state. */
+    function requestRematch() {
+      if (onlineRematchBtn) onlineRematchBtn.disabled = true;
+      if (rematchStatusEl) rematchStatusEl.textContent = 'Waiting for opponent to rematch…';
+      socket.emit('requestRematch', { code }, (ack) => {
+        if (!ack.ok && rematchStatusEl) {
+          rematchStatusEl.textContent = ack.error || 'Could not start a rematch.';
+          if (onlineRematchBtn) onlineRematchBtn.disabled = false;
+        }
+      });
+    }
+
+    /** The server told us someone (me or the opponent) has requested a rematch. */
+    function handleRematchRequested(playerNumber) {
+      if (!rematchStatusEl || gameOver === false) return;
+      if (playerNumber === myPlayerNumber) {
+        rematchStatusEl.textContent = 'Waiting for opponent to rematch…';
+      } else {
+        rematchStatusEl.textContent = 'Opponent wants a rematch — click Rematch to accept!';
+      }
+    }
+
     playAgainBtn.addEventListener('click', () => {
       if (onExitCallback) onExitCallback();
     });
 
-    return { start, resume, handleShotResult, handleOpponentLeftMidGame };
+    if (onlineRematchBtn) {
+      onlineRematchBtn.addEventListener('click', requestRematch);
+    }
+
+    return {
+      start,
+      resume,
+      handleShotResult,
+      handleOpponentLeftMidGame,
+      handleRematchRequested,
+      getScore: () => score,
+    };
   }
 
   window.createOnlineBattleScreen = createOnlineBattleScreen;

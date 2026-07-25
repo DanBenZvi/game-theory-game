@@ -71,6 +71,7 @@
 
     <section id="battle" class="screen hidden">
       <div id="battleShakeTarget">
+        <p id="scoreboard" class="scoreboard hidden"></p>
         <p id="turnIndicator" class="turn-indicator"></p>
         <div class="battle-layout">
           <div class="board-col">
@@ -91,8 +92,10 @@
       <div id="gameOverOverlay" class="game-over hidden">
         <p id="gameOverTitle" class="game-over-title"></p>
         <p id="gameOverStats" class="game-over-stats"></p>
+        <p id="rematchStatus" class="status"></p>
         <div class="game-over-actions">
           <button id="rematchBtn" class="btn btn-primary hidden">Play Again</button>
+          <button id="onlineRematchBtn" class="btn btn-primary hidden">Rematch</button>
           <button id="playAgainBtn" class="btn btn-ghost">← Back to Menu</button>
         </div>
       </div>
