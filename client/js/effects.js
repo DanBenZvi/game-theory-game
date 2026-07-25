@@ -92,10 +92,14 @@
   function shakeScreen() {
     const el = document.getElementById('battle');
     if (!el) return;
+    // Removing the class cancels any in-progress shake outright (no
+    // animationend fires for a canceled animation), so restarting it here
+    // can't race with an earlier call's cleanup — a plain setTimeout(ms) can,
+    // if two shakes overlap and the first call's timer outlives the second's.
     el.classList.remove('shake-screen');
     void el.offsetWidth; // restart the animation if triggered again quickly
     el.classList.add('shake-screen');
-    setTimeout(() => el.classList.remove('shake-screen'), 420);
+    el.addEventListener('animationend', () => el.classList.remove('shake-screen'), { once: true });
   }
 
   function flashCell(cellEl) {

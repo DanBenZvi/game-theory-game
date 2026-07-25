@@ -50,6 +50,7 @@ muteBtn.addEventListener('click', () => {
   unlockSoundOnce();
   const nowMuted = !SoundEngine.isMuted();
   SoundEngine.setMuted(nowMuted);
+  Music.setMuted(nowMuted);
   muteBtn.textContent = nowMuted ? '🔇' : '🔊';
   muteBtn.classList.toggle('muted', nowMuted);
 });
@@ -132,6 +133,7 @@ function resetOnlineSession() {
 
 function goToMenu() {
   resetOnlineSession();
+  Music.stop();
   showScreen(menuEl);
 }
 
@@ -145,6 +147,7 @@ document.getElementById('vsComputerBtn').addEventListener('click', () => {
   placementScreen.enter((placements) => {
     showScreen(battleEl);
     rematchBtn.classList.remove('hidden');
+    Music.play();
     battleScreen.start({ placements, difficulty: selectedDifficulty }, goToMenu);
   });
 });
@@ -240,6 +243,7 @@ socket.on('battleStart', ({ turn }) => {
   if (mode !== 'online') return;
   showScreen(battleEl);
   rematchBtn.classList.add('hidden');
+  Music.play();
   onlineBattleScreen.start(
     { code: roomCode, playerNumber: myPlayerNumber, placements: myPlacements, turn },
     goToMenu,
@@ -296,6 +300,7 @@ socket.on('connect', () => {
     if (res.snapshot.status === 'battle' || res.snapshot.status === 'finished') {
       showScreen(battleEl);
       rematchBtn.classList.add('hidden');
+      if (res.snapshot.status === 'battle') Music.play();
       onlineBattleScreen.resume({ code: roomCode, playerNumber: myPlayerNumber, snapshot: res.snapshot }, goToMenu);
     } else if (res.snapshot.status === 'placing' && res.snapshot.ready) {
       showScreen(roomEl);
